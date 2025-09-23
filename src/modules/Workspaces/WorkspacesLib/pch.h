@@ -7,8 +7,33 @@
 #ifndef PCH_H
 #define PCH_H
 #define WIN32_LEAN_AND_MEAN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
+// Include windows headers first 
 #include <windows.h>
+
+// Include WinRT headers
 #include <winrt/base.h>
+
+// Include Shell API headers after WinRT to avoid IUnknown conflicts
+#include <shellapi.h>
+
+// Standard library includes
+#include <memory>
+#include <string>
+#include <vector>
+#include <mutex>
+#include <atomic>
+#include <thread>
+#include <chrono>
+#include <algorithm>
+#include <filesystem>
+#include <optional>
+
+// Common includes
+#include <common/logger/logger.h>
 #include <ProjectTelemetry.h>
 
 #endif //PCH_H

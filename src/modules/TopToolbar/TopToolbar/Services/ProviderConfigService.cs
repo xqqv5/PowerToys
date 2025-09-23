@@ -58,7 +58,7 @@ public sealed class ProviderConfigService
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogWarning($"ProviderConfigService: failed to load '{file}' - {ex.Message}.");
+                    ManagedCommon.Logger.LogWarning($"ProviderConfigService: failed to load '{file}' - {ex.Message}.");
                 }
             }
         }
@@ -98,7 +98,103 @@ public sealed class ProviderConfigService
     private static ProviderConfig LoadConfig(string path)
     {
         using var stream = File.OpenRead(path);
+
+        // Parse as raw JsonDocument first to detect format
+        stream.Position = 0;
+        using var document = JsonDocument.Parse(stream);
+        var root = document.RootElement;
+
+        // Check if this is the new MCP v2.0 format
+        if (root.TryGetProperty("version", out var versionElement) &&
+            versionElement.GetString() == "2.0" &&
+            root.TryGetProperty("type", out var typeElement) &&
+            typeElement.GetString() == "mcp")
+        {
+            // Parse as new MCP format and convert to legacy ProviderConfig
+            stream.Position = 0;
+            var mcpConfig = JsonSerializer.Deserialize<McpProviderConfig>(stream, JsonOptions);
+            return ConvertMcpConfigToProviderConfig(mcpConfig);
+        }
+
+        // Parse as legacy format
+        stream.Position = 0;
         return JsonSerializer.Deserialize<ProviderConfig>(stream, JsonOptions);
+    }
+
+    /// <summary>
+    /// Converts new MCP v2.0 configuration to legacy ProviderConfig format for backward compatibility
+    /// </summary>
+    private static ProviderConfig ConvertMcpConfigToProviderConfig(McpProviderConfig mcpConfig)
+    {
+        var config = new ProviderConfig
+        {
+            Id = mcpConfig.Id,
+            GroupName = mcpConfig.DisplayName,
+            Description = mcpConfig.Description,
+            Layout = new ProviderLayoutConfig
+            {
+                Style = ConvertLayoutStyle(mcpConfig.GroupLayout.Style),
+                Overflow = ConvertOverflowMode(mcpConfig.GroupLayout.Overflow),
+                MaxInline = mcpConfig.GroupLayout.MaxInline,
+                ShowLabels = mcpConfig.GroupLayout.ShowLabels,
+            },
+            External = new ExternalProviderConfig
+            {
+                Type = ExternalProviderType.Mcp,
+                ExecutablePath = mcpConfig.Connection.Executable.Path,
+                Arguments = string.Join(" ", mcpConfig.Connection.Executable.Args),
+                WorkingDirectory = mcpConfig.Connection.Executable.WorkingDirectory,
+                Environment = mcpConfig.Connection.Executable.Environment,
+                StartupTimeoutSeconds = mcpConfig.Connection.Timeouts.StartupSeconds,
+            },
+            Actions = new List<ProviderActionConfig>(),
+        };
+
+        // Convert fallback actions if enabled
+        if (mcpConfig.Fallback.Enabled)
+        {
+            foreach (var fallbackAction in mcpConfig.Fallback.Actions)
+            {
+                var actionConfig = new ProviderActionConfig
+                {
+                    Id = $"{mcpConfig.Id}::{fallbackAction.Id}",
+                    Name = fallbackAction.Name,
+                    Description = fallbackAction.Description,
+                    IconGlyph = fallbackAction.IconGlyph,
+                    SortOrder = fallbackAction.SortOrder,
+                    Action = new ToolbarAction
+                    {
+                        Type = ToolbarActionType.Provider,
+                        ProviderId = mcpConfig.Id,
+                        ProviderActionId = fallbackAction.Id,
+                    },
+                };
+
+                config.Actions.Add(actionConfig);
+            }
+        }
+
+        return config;
+    }
+
+    private static ToolbarGroupLayoutStyle ConvertLayoutStyle(string style)
+    {
+        return style?.ToLowerInvariant() switch
+        {
+            "icon" => ToolbarGroupLayoutStyle.Icon,
+            "capsule" => ToolbarGroupLayoutStyle.Capsule,
+            _ => ToolbarGroupLayoutStyle.Icon,
+        };
+    }
+
+    private static ToolbarGroupOverflowMode ConvertOverflowMode(string overflow)
+    {
+        return overflow?.ToLowerInvariant() switch
+        {
+            "wrap" => ToolbarGroupOverflowMode.Wrap,
+            "menu" => ToolbarGroupOverflowMode.Menu,
+            _ => ToolbarGroupOverflowMode.Menu,
+        };
     }
 
     private static ProviderConfig Normalize(ProviderConfig config)

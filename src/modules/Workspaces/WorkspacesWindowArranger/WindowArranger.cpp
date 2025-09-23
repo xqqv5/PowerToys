@@ -11,10 +11,12 @@
 #include <workspaces-common/WindowUtils.h>
 
 #include <WindowProperties/WorkspacesWindowPropertyUtils.h>
+#include <WorkspacesLib/LaunchingStateEnum.h>
 #include <WorkspacesLib/PwaHelper.h>
 #include <WorkspacesLib/WindowUtils.h>
 
 #include <algorithm>
+#include <filesystem>
 #include <vector>
 
 namespace NonLocalizable
@@ -175,8 +177,8 @@ bool WindowArranger::TryMoveWindow(const WorkspacesData::WorkspacesProject::Appl
 
 std::optional<WindowWithDistance> WindowArranger::GetNearestWindow(const WorkspacesData::WorkspacesProject::Application& app, const std::vector<HWND>& movedWindows, Utils::PwaHelper& pwaHelper)
 {
-    std::optional<Utils::Apps::AppData> appDataNearest = std::nullopt;
     WindowWithDistance nearestWindowWithDistance{};
+    bool foundMatch = false;
 
     for (HWND window : m_windowsBefore)
     {
@@ -196,76 +198,54 @@ std::optional<WindowWithDistance> WindowArranger::GetNearestWindow(const Workspa
             continue;
         }
 
-        DWORD pid{};
-        GetWindowThreadProcessId(window, &pid);
-        std::wstring title = WindowUtils::GetWindowTitle(window);
+        // Enhanced matching logic using AUMID
+        std::wstring processName = std::filesystem::path(processPath).stem();
+        std::wstring windowAumid = Utils::GetAUMIDFromWindow(window);
 
-        // fix for the packaged apps that are not caught when minimized, e.g. Settings, Microsoft ToDo, ...
-        if (processPath.ends_with(NonLocalizable::ApplicationFrameHost))
+        // Primary match: AppUserModelId (most reliable)
+        bool isMatch = (!windowAumid.empty() && !app.appUserModelId.empty() && 
+                       app.appUserModelId == windowAumid);
+
+        // Secondary match: Direct path match
+        if (!isMatch && app.path == processPath) {
+            isMatch = true;
+        }
+
+        // Fallback match: Process name
+        if (!isMatch && app.name == processName) {
+            isMatch = true;
+        }
+
+        // PWA app special handling
+        if (!isMatch && !app.pwaAppId.empty())
         {
-            for (auto otherWindow : m_windowsBefore)
+            std::wstring processNameLower = processName;
+            std::transform(processNameLower.begin(), processNameLower.end(), processNameLower.begin(), ::towlower);
+            
+            if (processNameLower == L"msedge" || processNameLower == L"chrome")
             {
-                DWORD otherPid{};
-                GetWindowThreadProcessId(otherWindow, &otherPid);
-
-                // searching for the window with the same title but different PID
-                if (pid != otherPid && title == WindowUtils::GetWindowTitle(otherWindow))
+                std::optional<std::wstring> pwaAppId{};
+                if (processNameLower == L"msedge")
                 {
-                    processPath = get_process_path(otherPid);
-                    break;
+                    pwaAppId = pwaHelper.GetEdgeAppId(windowAumid);
+                }
+                else if (processNameLower == L"chrome")
+                {
+                    pwaAppId = pwaHelper.GetChromeAppId(windowAumid);
+                }
+                
+                if (pwaAppId.has_value() && pwaAppId.value() == app.pwaAppId)
+                {
+                    isMatch = true;
                 }
             }
         }
 
-        auto data = Utils::Apps::GetApp(processPath, pid, m_installedApps);
-
-        if (!data->IsSteamGame() && !WindowUtils::HasThickFrame(window))
+        if (isMatch)
         {
-            // Only care about steam games if it has no thick frame to remain consistent with
-            // the behavior as before.
-            continue;
-        }
-
-        if (!data.has_value())
-        {
-            continue;
-        }
-
-        auto appData = data.value();
-
-        // PWA apps
-        bool isEdge = appData.IsEdge();
-        bool isChrome = appData.IsChrome();
-        if (isEdge || isChrome)
-        {
-            auto windowAumid = Utils::GetAUMIDFromWindow(window);
-            std::optional<std::wstring> pwaAppId{};
-
-            if (isEdge)
+            if (!foundMatch)
             {
-                pwaAppId = pwaHelper.GetEdgeAppId(windowAumid);
-            }
-            else if (isChrome)
-            {
-                pwaAppId = pwaHelper.GetChromeAppId(windowAumid);
-            }
-
-            if (pwaAppId.has_value())
-            {
-                auto pwaName = pwaHelper.SearchPwaName(pwaAppId.value(), windowAumid);
-                std::wstring browserType = isEdge ? L"Edge" : (isChrome ? L"Chrome" : L"unknown");
-                Logger::info(L"Found {} PWA app with name {}, appId: {}", browserType, pwaName, pwaAppId.value());
-
-                appData.pwaAppId = pwaAppId.value();
-                appData.name = pwaName + L" (" + appData.name + L")";
-            }
-        }
-
-        if ((app.name == appData.name || app.path == appData.installPath) && (app.pwaAppId == appData.pwaAppId))
-        {
-            if (!appDataNearest.has_value())
-            {
-                appDataNearest = data;
+                foundMatch = true;
                 nearestWindowWithDistance.distance = PlacementHelper::CalculateDistance(app, window);
                 nearestWindowWithDistance.window = window;
             }
@@ -274,7 +254,6 @@ std::optional<WindowWithDistance> WindowArranger::GetNearestWindow(const Workspa
                 int currentDistance = PlacementHelper::CalculateDistance(app, window);
                 if (currentDistance < nearestWindowWithDistance.distance)
                 {
-                    appDataNearest = data;
                     nearestWindowWithDistance.distance = currentDistance;
                     nearestWindowWithDistance.window = window;
                 }
@@ -282,7 +261,7 @@ std::optional<WindowWithDistance> WindowArranger::GetNearestWindow(const Workspa
         }
     }
 
-    if (appDataNearest.has_value())
+    if (foundMatch)
     {
         return nearestWindowWithDistance;
     }
@@ -293,7 +272,6 @@ WindowArranger::WindowArranger(WorkspacesData::WorkspacesProject project) :
     m_project(project),
     m_windowsBefore(WindowEnumerator::Enumerate(WindowFilter::Filter)),
     m_monitors(MonitorUtils::IdentifyMonitors()),
-    m_installedApps(Utils::Apps::GetAppsList()),
     m_ipcHelper(IPCHelperStrings::WindowArrangerPipeName, IPCHelperStrings::LauncherArrangerPipeName, std::bind(&WindowArranger::receiveIpcMessage, this, std::placeholders::_1)),
     m_launchingStatus(m_project)
 {
@@ -560,27 +538,42 @@ bool WindowArranger::processWindow(HWND window)
         return false;
     }
 
-    DWORD pid{};
-    GetWindowThreadProcessId(window, &pid);
-
-    auto data = Utils::Apps::GetApp(processPath, pid, m_installedApps);
-    if (!data.has_value())
-    {
-        return false;
-    }
+    // Enhanced matching logic using AUMID for better reliability
+    std::wstring processName = std::filesystem::path(processPath).stem();
+    std::wstring windowAumid = Utils::GetAUMIDFromWindow(window);
 
     const auto& apps = m_launchingStatus.Get();
     auto iter = std::find_if(apps.begin(), apps.end(), [&](const auto& val) {
-        return val.second.state == LaunchingState::Launched &&
-               !val.second.window &&
-               (val.first.name == data.value().name || val.first.path == data.value().installPath);
+        if (val.second.state != LaunchingState::Launched || val.second.window) {
+            return false;
+        }
+
+        // Primary match: AppUserModelId (most reliable)
+        if (!windowAumid.empty() && !val.first.appUserModelId.empty() && 
+            val.first.appUserModelId == windowAumid) {
+            return true;
+        }
+
+        // Secondary match: Direct path match
+        if (val.first.path == processPath) {
+            return true;
+        }
+
+        // Fallback match: Process name (less reliable but still useful)
+        if (val.first.name == processName) {
+            return true;
+        }
+
+        return false;
     });
 
     if (iter == apps.end())
     {
-        Logger::trace(L"Skip {}", processPath);  // Changed from info to trace to reduce noise
+        Logger::trace(L"Skip {} - no matching app in workspace", processName);
         return false;
     }
+
+    Logger::info(L"Found matching app {} for process {}", iter->first.name, processName);
 
     if (moveWindow(window, iter->first))
     {
@@ -745,71 +738,57 @@ bool WindowArranger::IsWindowInAppList(HWND window, Utils::PwaHelper& pwaHelper)
         return true; // Skip windows without valid process path
     }
 
-    DWORD pid{};
-    GetWindowThreadProcessId(window, &pid);
-    std::wstring title = WindowUtils::GetWindowTitle(window);
+    // Enhanced app checking logic using AUMID
+    std::wstring processName = std::filesystem::path(processPath).stem();
+    std::wstring windowAumid = Utils::GetAUMIDFromWindow(window);
 
-    // Handle ApplicationFrameHost (UWP apps)
-    if (processPath.ends_with(NonLocalizable::ApplicationFrameHost))
+    // Check if this is a workspace app
+    for (const auto& app : m_project.apps)
     {
-        // Get all current windows to find the actual process
-        auto currentWindows = WindowEnumerator::Enumerate(WindowFilter::Filter);
-        for (auto otherWindow : currentWindows)
+        // Primary match: AppUserModelId (most reliable)
+        if (!windowAumid.empty() && !app.appUserModelId.empty() && 
+            app.appUserModelId == windowAumid) {
+            return true; // Is workspace app, don't minimize
+        }
+
+        // Secondary match: Direct path match
+        if (app.path == processPath) {
+            return true; // Is workspace app, don't minimize
+        }
+
+        // Fallback match: Process name
+        if (app.name == processName) {
+            return true; // Is workspace app, don't minimize
+        }
+
+        // PWA app special handling
+        if (!app.pwaAppId.empty())
         {
-            DWORD otherPid{};
-            GetWindowThreadProcessId(otherWindow, &otherPid);
-            if (pid != otherPid && title == WindowUtils::GetWindowTitle(otherWindow))
+            std::wstring processNameLower = processName;
+            std::transform(processNameLower.begin(), processNameLower.end(), processNameLower.begin(), ::towlower);
+            
+            if (processNameLower == L"msedge" || processNameLower == L"chrome")
             {
-                processPath = get_process_path(otherPid);
-                break;
+                std::optional<std::wstring> pwaAppId{};
+                
+                if (processNameLower == L"msedge")
+                {
+                    pwaAppId = pwaHelper.GetEdgeAppId(windowAumid);
+                }
+                else if (processNameLower == L"chrome")
+                {
+                    pwaAppId = pwaHelper.GetChromeAppId(windowAumid);
+                }
+                
+                if (pwaAppId.has_value() && pwaAppId.value() == app.pwaAppId)
+                {
+                    return true; // Is workspace PWA app
+                }
             }
         }
     }
 
-    auto data = Utils::Apps::GetApp(processPath, pid, m_installedApps);
-    if (!data.has_value())
-    {
-        return false; // Unknown app, should be minimized
-    }
-
-    auto appData = data.value();
-
-    // Handle PWA apps
-    bool isEdge = appData.IsEdge();
-    bool isChrome = appData.IsChrome();
-    if (isEdge || isChrome)
-    {
-        auto windowAumid = Utils::GetAUMIDFromWindow(window);
-        std::optional<std::wstring> pwaAppId{};
-
-        if (isEdge)
-        {
-            pwaAppId = pwaHelper.GetEdgeAppId(windowAumid);
-        }
-        else if (isChrome)
-        {
-            pwaAppId = pwaHelper.GetChromeAppId(windowAumid);
-        }
-
-        if (pwaAppId.has_value())
-        {
-            auto pwaName = pwaHelper.SearchPwaName(pwaAppId.value(), windowAumid);
-            appData.pwaAppId = pwaAppId.value();
-            appData.name = pwaName + L" (" + appData.name + L")";
-        }
-    }
-
-    // Check if this app is in our workspace app list
-    for (const auto& app : m_project.apps)
-    {
-        if ((app.name == appData.name || app.path == appData.installPath) && 
-            (app.pwaAppId == appData.pwaAppId))
-        {
-            return true; // App is in our list, don't minimize
-        }
-    }
-
-    return false; // App is not in our list, should be minimized
+    return false; // Not a workspace app, should be minimized
 }
 
 bool WindowArranger::MinimizeWindowWithoutAnimation(HWND window)

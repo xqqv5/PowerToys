@@ -18,6 +18,12 @@ public:
     std::optional<WorkspacesData::LaunchingAppState> Get(const WorkspacesData::WorkspacesProject::Application& app) noexcept;
     std::optional<WorkspacesData::LaunchingAppState> GetNext(LaunchingState state) noexcept;
     
+    /**
+     * Get the workspace project data for app protection
+     * @return Workspace project reference
+     */
+    const WorkspacesData::WorkspacesProject& GetWorkspace() const noexcept;
+    
     bool IsWindowProcessed(HWND window) noexcept;
 
     void Update(const WorkspacesData::WorkspacesProject::Application& app, LaunchingState state);
@@ -25,6 +31,7 @@ public:
     void Cancel();
     
 private:
+    const WorkspacesData::WorkspacesProject m_project; // Store workspace for app protection
     WorkspacesData::LaunchingAppStateMap m_appsState;
     std::shared_mutex m_mutex;
 };

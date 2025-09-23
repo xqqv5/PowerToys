@@ -10,12 +10,15 @@ namespace IPCHelperStrings
 
     static std::wstring LauncherArrangerPipeName(L"\\\\.\\pipe\\powertoys_workspaces_launcher_arranger_");
     static std::wstring WindowArrangerPipeName(L"\\\\.\\pipe\\powertoys_workspaces_window_arranger_");
+    
+    // New dedicated pipe for WorkspacesService
+    static std::wstring WorkspacesServicePipeName(L"\\\\.\\pipe\\powertoys_workspaces_service_");
 }
 
 class IPCHelper
 {
 public:
-    IPCHelper(const std::wstring& currentPipeName, const std::wstring receiverPipeName, std::function<void(const std::wstring&)> messageCallback);
+    IPCHelper(const std::wstring& currentPipeName, const std::wstring& receiverPipeName, std::function<void(const std::wstring&)> messageCallback);
     ~IPCHelper();
 
     void send(const std::wstring& message) const;

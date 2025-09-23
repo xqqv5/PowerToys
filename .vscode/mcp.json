@@ -1,0 +1,10 @@
+{
+	"servers": {
+		"workspaces mcp": {
+			"type": "stdio",
+			"command": "C:\\\\PowerToys\\\\ARM64\\\\Debug\\\\PowerToys.WorkspacesMCP.exe",
+			"args": []
+		}
+	},
+	"inputs": []
+}

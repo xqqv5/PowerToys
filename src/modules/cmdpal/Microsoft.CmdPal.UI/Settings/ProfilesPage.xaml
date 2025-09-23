@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="Microsoft.CmdPal.UI.Settings.ProfilesPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:Microsoft.CmdPal.UI.Settings"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ui="using:CommunityToolkit.WinUI"
+    mc:Ignorable="d">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        
+        <ScrollViewer Grid.Row="1">
+            <Grid Padding="16">
+                <StackPanel
+                    MaxWidth="1000"
+                    HorizontalAlignment="Stretch"
+                    Spacing="{StaticResource SettingsCardSpacing}">
+
+                    <!-- Profile Management Header -->
+                    <TextBlock Text="Profile Management" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
+
+                    <!-- Profile List and Controls -->
+                    <controls:SettingsExpander
+                        Header="Profiles"
+                        Description="Manage your command palette profiles"
+                        HeaderIcon="{ui:FontIcon Glyph=&#xE7EE;}"
+                        IsExpanded="True">
+                        
+                        <controls:SettingsExpander.Items>
+                            <controls:SettingsCard
+                                Header="Available Profiles"
+                                Description="Select a profile to configure its actions">
+                                
+                                <StackPanel Orientation="Vertical" Spacing="12">
+                                    <!-- Profile List -->
+                                    <ListView x:Name="ProfileListView"
+                                              MinHeight="200"
+                                              MaxHeight="300"
+                                              SelectionMode="Single"
+                                              SelectionChanged="OnProfileSelectionChanged">
+                                        <ListView.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="8,4">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    
+                                                    <StackPanel Grid.Column="0" Orientation="Vertical">
+                                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                                        <TextBlock Text="{Binding ActionCountText}" 
+                                                                   FontSize="12" 
+                                                                   Opacity="0.8" />
+                                                    </StackPanel>
+                                                    
+                                                    <TextBlock Grid.Column="1" 
+                                                               Text="● Active" 
+                                                               Foreground="Green" 
+                                                               FontSize="12"
+                                                               VerticalAlignment="Center"
+                                                               Margin="8,0"
+                                                               Visibility="{Binding IsActive, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                               
+                                                    <Button Grid.Column="2" 
+                                                            Content="Rename"
+                                                            Click="OnRenameProfile"
+                                                            Tag="{Binding}"
+                                                            Style="{StaticResource AccentButtonStyle}"
+                                                            Margin="4,0,0,0" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListView.ItemTemplate>
+                                    </ListView>
+
+                                    <!-- Profile Control Buttons -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <Button x:Name="AddProfileButton"
+                                                Grid.Column="0"
+                                                Content="Add Profile"
+                                                Click="OnAddProfile"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="0,0,4,0" />
+                                                
+                                        <Button x:Name="RemoveProfileButton"
+                                                Grid.Column="1"
+                                                Content="Remove Profile"
+                                                Click="OnRemoveProfile"
+                                                IsEnabled="False"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="2,0" />
+                                                
+                                        <Button x:Name="ActivateProfileButton"
+                                                Grid.Column="2"
+                                                Content="Activate Profile"
+                                                Click="OnActivateProfile"
+                                                IsEnabled="False"
+                                                Style="{StaticResource AccentButtonStyle}"
+                                                HorizontalAlignment="Stretch"
+                                                Margin="4,0,0,0" />
+                                    </Grid>
+                                </StackPanel>
+                            </controls:SettingsCard>
+                        </controls:SettingsExpander.Items>
+                    </controls:SettingsExpander>
+
+                    <!-- Action Configuration -->
+                    <controls:SettingsExpander x:Name="ActionConfigurationExpander"
+                        Header="Action Configuration"
+                        Description="Configure which actions are enabled for the selected profile"
+                        HeaderIcon="{ui:FontIcon Glyph=&#xE713;}"
+                        IsEnabled="False">
+                        
+                        <controls:SettingsExpander.Items>
+                            <controls:SettingsCard
+                                Header="Available Actions"
+                                Description="Check the actions you want to enable for this profile">
+                                
+                                <ScrollViewer MaxHeight="400" VerticalScrollBarVisibility="Auto">
+                                    <ListView x:Name="ActionConfigurationList"
+                                              SelectionMode="None">
+                                        <ListView.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="8,4" Padding="4">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    
+                                                    <CheckBox x:Name="ActionCheckBox"
+                                                              Grid.Column="0"
+                                                              IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                                              Checked="OnActionToggled"
+                                                              Unchecked="OnActionToggled"
+                                                              Tag="{Binding}"
+                                                              VerticalAlignment="Top"
+                                                              Margin="0,0,12,0" />
+                                                    
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Top">
+                                                        <TextBlock Text="{Binding DisplayName}" 
+                                                                   FontWeight="SemiBold" />
+                                                        <TextBlock Text="{Binding ProviderId}" 
+                                                                   FontSize="11" 
+                                                                   Opacity="0.7" />
+                                                        <TextBlock Text="{Binding Description}" 
+                                                                   FontSize="12" 
+                                                                   Opacity="0.8"
+                                                                   TextWrapping="Wrap"
+                                                                   MaxWidth="600" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListView.ItemTemplate>
+                                    </ListView>
+                                </ScrollViewer>
+                            </controls:SettingsCard>
+                        </controls:SettingsExpander.Items>
+                    </controls:SettingsExpander>
+                    
+                    <!-- Status Information -->
+                    <controls:SettingsCard Header="Profile Status">
+                        <StackPanel Orientation="Vertical" Spacing="4">
+                            <TextBlock x:Name="CurrentProfileText" 
+                                       Text="Current Profile: None" 
+                                       FontWeight="SemiBold" />
+                            <TextBlock x:Name="ProfileActionsCountText" 
+                                       Text="Enabled Actions: 0" 
+                                       FontSize="12" 
+                                       Opacity="0.8" />
+                        </StackPanel>
+                    </controls:SettingsCard>
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+    </Grid>
+</Page>

@@ -24,7 +24,6 @@ private:
     const WorkspacesData::WorkspacesProject m_project;
     const std::vector<HWND> m_windowsBefore;
     const std::vector<WorkspacesData::WorkspacesProject::Monitor> m_monitors;
-    const Utils::Apps::AppList m_installedApps;
     //const WindowCreationHandler m_windowCreationHandler;
     IPCHelper m_ipcHelper;
     LaunchingStatus m_launchingStatus;

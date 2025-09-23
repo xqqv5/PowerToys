@@ -28,8 +28,11 @@
   <ItemDefinitionGroup>
     <ClCompile>
       <PreprocessorDefinitions>_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\;$(SolutionDir)src\;$(SolutionDir)src\common;$(SolutionDir)src\common\Telemetry;..\..\;..\..\..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\;$(SolutionDir)src\;$(SolutionDir)src\common;$(SolutionDir)src\common\Telemetry;..\..\..\common\Telemetry;..\..\;..\..\..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
+    <Link>
+      <AdditionalDependencies>shcore.lib;Shell32.lib;propsys.lib;DbgHelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="AppUtils.h" />
@@ -47,6 +50,7 @@
     <ClInclude Include="WbemHelper.h" />
     <ClInclude Include="WindowUtils.h" />
     <ClInclude Include="WorkspacesData.h" />
+    <ClInclude Include="WorkspacesService.h" />
     <ClInclude Include="trace.h" />
   </ItemGroup>
   <ItemGroup>
@@ -65,6 +69,7 @@
     <ClCompile Include="WbemHelper.cpp" />
     <ClCompile Include="WindowUtils.cpp" />
     <ClCompile Include="WorkspacesData.cpp" />
+    <ClCompile Include="WorkspacesService.cpp" />
     <ClCompile Include="trace.cpp" />
   </ItemGroup>
   <ItemGroup>

@@ -35,7 +35,7 @@ namespace TopToolbar
         private readonly ActionProviderService _providerService;
         private readonly ActionContextFactory _contextFactory;
         private readonly ToolbarActionExecutor _actionExecutor;
-        private readonly List<IDisposable> _providerDisposables = new();
+        private readonly BuiltinProvider _builtinProvider;
         private readonly ToolbarViewModel _vm;
 
         private readonly TopToolbar.Stores.ToolbarStore _store = new();
@@ -53,6 +53,10 @@ namespace TopToolbar
         private IntPtr _oldWndProc;
         private DpiWndProcDelegate _newWndProc;
 
+        // Profile runtime abstraction (replaces direct file service handling in this window)
+        private Services.Profiles.IProfileRuntime _profileRuntime;
+        private int _profileRebuildInFlight;
+
         private delegate IntPtr DpiWndProcDelegate(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
 
         public ToolbarWindow()
@@ -62,9 +66,16 @@ namespace TopToolbar
             _providerRuntime = new ActionProviderRuntime();
             _providerService = new ActionProviderService(_providerRuntime);
             _actionExecutor = new ToolbarActionExecutor(_providerService, _contextFactory);
+            _builtinProvider = new BuiltinProvider();
             _vm = new ToolbarViewModel(_configService, _providerService, _contextFactory);
             EnsurePerMonitorV2();
             RegisterProviders();
+
+            // TODO (Profiles): Inject ProfileManager & EffectiveModelBuilder here.
+            // 1. Load registry + active profile.
+            // 2. Load provider definition catalog.
+            // 3. Build effective model and drive initial group/button creation instead of raw config.
+            // 4. Subscribe to ActiveProfileChanged / OverridesChanged to rebuild (diff-based) UI.
 
             // Legacy _store.StoreChanged full rebuild removed; we now rely solely on detailed events.
             _store.StoreChangedDetailed += (s, e) =>
@@ -206,6 +217,9 @@ namespace TopToolbar
 
                 await _vm.LoadAsync(this.DispatcherQueue);
 
+                // Wait for profile runtime to initialize before building UI
+                await _profileRuntime.InitializeAsync();
+
                 // Ensure UI-thread access for XAML object tree
                 DispatcherQueue.TryEnqueue(() =>
                 {
@@ -217,6 +231,128 @@ namespace TopToolbar
                     _builtConfigOnce = true;
                 });
             };
+
+            // Initialize profile runtime (moved initialization here to ensure it's ready for await above)
+            _profileRuntime = new Services.Profiles.ProfileRuntime();
+            _profileRuntime.ActiveProfileChanged += (s, p) =>
+            {
+                try
+                {
+                    System.Diagnostics.Debug.WriteLine($"ToolbarWindow.ActiveProfileChanged: Profile changed to {p?.Name ?? "null"}");
+                    SafeEnqueueProfileRebuild();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"ToolbarWindow.ActiveProfileChanged: Error handling profile change: {ex.Message}");
+                }
+            };
+        }
+
+        public void SwitchProfile(string profileId)
+        {
+            try
+            {
+                _profileRuntime?.Switch(profileId);
+            }
+            catch
+            {
+            }
+        }
+
+        public IReadOnlyList<TopToolbar.Models.Abstractions.IProfile> GetAllProfiles()
+        {
+            try
+            {
+                return _profileRuntime?.GetAllProfiles() ?? new List<TopToolbar.Models.Abstractions.IProfile>();
+            }
+            catch
+            {
+                return new List<TopToolbar.Models.Abstractions.IProfile>();
+            }
+        }
+
+        private void SafeEnqueueProfileRebuild()
+        {
+            if (_profileRuntime == null)
+            {
+                return;
+            }
+
+            try
+            {
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    if (System.Threading.Interlocked.CompareExchange(ref _profileRebuildInFlight, 1, 0) != 0)
+                    {
+                        return;
+                    }
+
+                    try
+                    {
+                        RebuildFromActiveProfile();
+                    }
+                    catch (Exception rex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"TopToolbar: Profile rebuild failed: {rex.Message}");
+                    }
+                    finally
+                    {
+                        System.Threading.Interlocked.Exchange(ref _profileRebuildInFlight, 0);
+                    }
+                });
+            }
+            catch
+            {
+            }
+        }
+
+        private void RebuildFromActiveProfile()
+        {
+            var activeProfile = _profileRuntime?.ActiveProfile;
+            if (_profileRuntime == null || activeProfile == null)
+            {
+                return;
+            }
+
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"TopToolbar: Building UI for profile: {activeProfile.Name}");
+
+                // Instead of only using profile groups, we need to rebuild the entire store
+                // which includes both static config groups and dynamic provider groups,
+                // then apply profile filtering when building the UI
+
+                // First, ensure static groups from config are synced into store
+                SyncStaticGroupsIntoStore();
+
+                void ApplyUI()
+                {
+                    try
+                    {
+                        // Use the existing method that applies profile filtering
+                        BuildToolbarFromStore();
+                        ResizeToContent();
+                        System.Diagnostics.Debug.WriteLine($"TopToolbar: UI rebuilt with profile filtering applied");
+                    }
+                    catch (Exception apEx)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"TopToolbar: Apply UI failed: {apEx.Message}");
+                    }
+                }
+
+                if (DispatcherQueue.HasThreadAccess)
+                {
+                    ApplyUI();
+                }
+                else
+                {
+                    DispatcherQueue.TryEnqueue(ApplyUI);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"TopToolbar: Profile rebuild failed: {ex.Message}");
+            }
         }
 
         // Track which groups we've already hooked to avoid duplicate handlers
@@ -279,51 +415,22 @@ namespace TopToolbar
         {
             try
             {
-                var configService = new ProviderConfigService();
-                foreach (var config in configService.LoadConfigs())
+                // Initialize and register all built-in providers (workspace and MCP providers)
+                _builtinProvider.Initialize();
+                _builtinProvider.RegisterProvidersTo(_providerRuntime);
+            }
+            catch (Exception ex)
+            {
+                // Log error but continue
+                try
                 {
-                    if (config == null || string.IsNullOrWhiteSpace(config.Id))
-                    {
-                        continue;
-                    }
-
-                    try
-                    {
-                        var provider = CreateProvider(config);
-                        _providerRuntime.RegisterProvider(provider);
-
-                        if (provider is IDisposable disposable)
-                        {
-                            _providerDisposables.Add(disposable);
-                        }
-                    }
-                    catch (Exception)
-                    {
-                    }
+                    System.Diagnostics.Debug.WriteLine($"ToolbarWindow: Failed to register built-in providers: {ex.Message}");
+                }
+                catch
+                {
+                    // Ignore logging errors
                 }
             }
-            catch (Exception)
-            {
-            }
-
-            try
-            {
-                var workspaceProvider = new WorkspaceProvider();
-                _providerRuntime.RegisterProvider(workspaceProvider);
-            }
-            catch (Exception)
-            {
-            }
-        }
-
-        private static IActionProvider CreateProvider(ProviderConfig config)
-        {
-            if (config?.External?.Type == ExternalProviderType.Mcp)
-            {
-                return new McpActionProvider(config);
-            }
-
-            return new ConfiguredActionProvider(config);
         }
 
         private void CreateToolbarShell()
@@ -463,6 +570,51 @@ namespace TopToolbar
             }
         }
 
+        // Helper methods to respect profile settings when building from store
+        private bool IsGroupEnabledInProfile(ButtonGroup group)
+        {
+            var activeProfile = _profileRuntime?.ActiveProfile;
+            if (activeProfile == null)
+            {
+                return true; // If no profile, respect store enabled state only
+            }
+
+            // Check if this group exists in profile and is enabled
+            var profileGroup = activeProfile.Groups?.FirstOrDefault(pg =>
+                string.Equals(pg.Id, group.Id, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(pg.Name, group.Name, StringComparison.OrdinalIgnoreCase));
+
+            // If group not in profile, default to enabled; otherwise use profile setting
+            return profileGroup?.IsEnabled ?? true;
+        }
+
+        private bool IsActionEnabledInProfile(ButtonGroup group, ToolbarButton button)
+        {
+            var activeProfile = _profileRuntime?.ActiveProfile;
+            if (activeProfile == null)
+            {
+                return true; // If no profile, respect store enabled state only
+            }
+
+            // Find the corresponding profile group
+            var profileGroup = activeProfile.Groups?.FirstOrDefault(pg =>
+                string.Equals(pg.Id, group.Id, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(pg.Name, group.Name, StringComparison.OrdinalIgnoreCase));
+
+            if (profileGroup == null)
+            {
+                return true; // Group not in profile, default to enabled
+            }
+
+            // Check if the action exists in profile group and is enabled
+            var profileAction = profileGroup.Actions?.FirstOrDefault(pa =>
+                string.Equals(pa.Id, button.Id, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(pa.Name, button.Name, StringComparison.OrdinalIgnoreCase));
+
+            // If action not in profile group, default to enabled; otherwise use profile setting
+            return profileAction?.IsEnabled ?? true;
+        }
+
         // Transitional full rebuild method (will be replaced by ItemsRepeater binding in Phase 2)
         private void BuildToolbarFromStore()
         {
@@ -475,10 +627,29 @@ namespace TopToolbar
 
             mainStack.Children.Clear();
 
-            // Filter enabled groups and buttons
+            // Add profile UI as first element
+            var activeProfile = _profileRuntime?.ActiveProfile;
+            if (_profileRuntime != null && activeProfile != null)
+            {
+                // Add profile display button
+                var profileDisplayName = activeProfile.Name ?? _profileRuntime.ActiveProfileId;
+
+                var profileButton = CreateIconButton(
+                    "\uE77B",
+                    $"Current Profile: {profileDisplayName}",
+                    (s, e) =>
+                    {
+                        // Create and show profile switcher menu
+                        ShowProfileSwitcherMenu(s as FrameworkElement);
+                    },
+                    profileDisplayName);
+                mainStack.Children.Add(profileButton);
+            }
+
+            // Filter enabled groups and buttons, respecting profile settings if available
             var activeGroups = _store.Groups
-                .Where(g => g != null && g.IsEnabled)
-                .Select(g => new { Group = g, EnabledButtons = g.Buttons.Where(b => b.IsEnabled).ToList() })
+                .Where(g => g != null && g.IsEnabled && IsGroupEnabledInProfile(g))
+                .Select(g => new { Group = g, EnabledButtons = g.Buttons.Where(b => b.IsEnabled && IsActionEnabledInProfile(g, b)).ToList() })
                 .Where(x => x.EnabledButtons.Count > 0)
                 .ToList();
 
@@ -586,14 +757,14 @@ namespace TopToolbar
 
             var settingsButton = CreateIconButton("\uE713", "Toolbar Settings", (s, e) =>
             {
-                var win = new SettingsWindow();
+                var win = new SettingsWindow(_profileRuntime, null);
                 win.AppWindow.Move(new Windows.Graphics.PointInt32(this.AppWindow.Position.X + 50, this.AppWindow.Position.Y + 60));
                 win.Activate();
             });
             mainStack.Children.Add(settingsButton);
         }
 
-        private FrameworkElement CreateIconButton(string content, string tooltip, RoutedEventHandler clickHandler)
+        private FrameworkElement CreateIconButton(string content, string tooltip, RoutedEventHandler clickHandler, string labelText = "Settings")
         {
             var button = new Button
             {
@@ -616,7 +787,7 @@ namespace TopToolbar
             // Create text label for button
             var textLabel = new TextBlock
             {
-                Text = "Settings",
+                Text = labelText,
                 FontSize = 9,
                 Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 100, 100, 100)),
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -945,9 +1116,9 @@ namespace TopToolbar
             }
 
             var group = _store.Groups.FirstOrDefault(g => string.Equals(g.Id, groupId, StringComparison.OrdinalIgnoreCase));
-            if (group == null || !group.IsEnabled)
+            if (group == null || !group.IsEnabled || !IsGroupEnabledInProfile(group))
             {
-                // Removed or disabled group: trigger full rebuild to also clean separators coherently.
+                // Removed or disabled group (either in store or profile): trigger full rebuild to also clean separators coherently.
                 BuildToolbarFromStore();
                 ResizeToContent();
                 return;
@@ -964,10 +1135,10 @@ namespace TopToolbar
                 }
             }
 
-            var enabledButtons = group.Buttons.Where(b => b.IsEnabled).ToList();
+            var enabledButtons = group.Buttons.Where(b => b.IsEnabled && IsActionEnabledInProfile(group, b)).ToList();
             if (enabledButtons.Count == 0)
             {
-                // If no buttons remain, treat as removal
+                // If no buttons remain (after both store and profile filtering), treat as removal
                 BuildToolbarFromStore();
                 ResizeToContent();
                 return;
@@ -1299,6 +1470,57 @@ namespace TopToolbar
             // With WS_EX_LAYERED + no background, only visible content shows
         }
 
+        private void ShowProfileSwitcherMenu(FrameworkElement targetElement)
+        {
+            if (_profileRuntime == null || targetElement == null)
+            {
+                return;
+            }
+
+            try
+            {
+                var profiles = GetAllProfiles();
+                var activeProfileId = _profileRuntime.ActiveProfileId;
+
+                // Create menu flyout
+                var menuFlyout = new MenuFlyout();
+
+                foreach (var profile in profiles)
+                {
+                    var menuItem = new MenuFlyoutItem
+                    {
+                        Text = profile.Name,
+                        Tag = profile.Id,
+                    };
+
+                    // Mark current profile with checkmark
+                    if (string.Equals(profile.Id, activeProfileId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        menuItem.Icon = new FontIcon { Glyph = "\uE73E" }; // Checkmark
+                    }
+
+                    menuItem.Click += (s, e) =>
+                    {
+                        var clickedProfileId = (s as MenuFlyoutItem)?.Tag as string;
+                        if (!string.IsNullOrWhiteSpace(clickedProfileId) &&
+                            !string.Equals(clickedProfileId, activeProfileId, StringComparison.OrdinalIgnoreCase))
+                        {
+                            SwitchProfile(clickedProfileId);
+                        }
+                    };
+
+                    menuFlyout.Items.Add(menuItem);
+                }
+
+                // Show the menu at the target element
+                menuFlyout.ShowAt(targetElement);
+            }
+            catch
+            {
+                // Silently handle errors for now
+            }
+        }
+
         [DllImport("user32.dll", SetLastError = true)]
         private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
 
@@ -1320,18 +1542,15 @@ namespace TopToolbar
                 _configWatcher.Dispose();
             }
 
-            foreach (var disposable in _providerDisposables)
+            // Dispose the built-in provider which handles all provider disposals
+            try
             {
-                try
-                {
-                    disposable.Dispose();
-                }
-                catch (Exception)
-                {
-                }
+                _builtinProvider?.Dispose();
+            }
+            catch (Exception)
+            {
             }
 
-            _providerDisposables.Clear();
             GC.SuppressFinalize(this);
         }
     }

@@ -32,6 +32,50 @@ namespace AppLauncher
     {
         std::wstring dir = std::filesystem::path(appPath).parent_path();
 
+        // Use CreateProcess for faster startup when not elevated
+        if (!elevated)
+        {
+            STARTUPINFO si = { 0 };
+            si.cb = sizeof(STARTUPINFO);
+            si.dwFlags = STARTF_USESHOWWINDOW;
+            si.wShowWindow = SW_SHOWMINNOACTIVE;
+            
+            PROCESS_INFORMATION pi = { 0 };
+            
+            // Combine app path and command line args
+            std::wstring commandLine = L"\"" + appPath + L"\" " + commandLineArgs;
+            
+            if (CreateProcess(
+                appPath.c_str(),           // Application name
+                commandLine.data(),       // Command line (modifiable)
+                nullptr,                  // Process security attributes
+                nullptr,                  // Primary thread security attributes
+                FALSE,                    // Inherit handles
+                0,                        // Creation flags
+                nullptr,                  // Environment
+                dir.c_str(),             // Current directory
+                &si,                     // Startup info
+                &pi))                    // Process info
+            {
+                // Convert PROCESS_INFORMATION to SHELLEXECUTEINFO format
+                SHELLEXECUTEINFO sei = { 0 };
+                sei.cbSize = sizeof(SHELLEXECUTEINFO);
+                sei.hProcess = pi.hProcess;
+                
+                // Close thread handle as we don't need it
+                CloseHandle(pi.hThread);
+                
+                return Ok(sei);
+            }
+            else
+            {
+                std::wstring error = get_last_error_or_default(GetLastError());
+                Logger::error(L"Failed to launch process with CreateProcess. {}", error);
+                // Fall through to ShellExecuteEx
+            }
+        }
+
+        // Fallback to ShellExecuteEx for elevated processes or if CreateProcess failed
         SHELLEXECUTEINFO sei = { 0 };
         sei.cbSize = sizeof(SHELLEXECUTEINFO);
         sei.hwnd = nullptr;

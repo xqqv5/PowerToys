@@ -6,6 +6,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:winuiex="using:WinUIEx"
     xmlns:local="using:TopToolbar.Models"
+    xmlns:profiles="using:TopToolbar.Services.Profiles.Models"
     xmlns:tkcontrols="using:CommunityToolkit.WinUI.Controls"
     xmlns:conv="using:TopToolbar.Converters"
     mc:Ignorable="d"
@@ -16,10 +17,12 @@
     Title="Toolbar Settings">
     <Grid Background="Transparent">
         <Grid.Resources>
-            <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+            <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
             <!-- Global smaller base text size override (excluding explicit sizes) -->
-            <Style TargetType="TextBlock" x:Key="BaseTextStyle">
-                <Setter Property="FontSize" Value="12" />
+            <Style TargetType="TextBlock"
+                    x:Key="BaseTextStyle">
+                <Setter Property="FontSize"
+                        Value="12"/>
             </Style>
             <!-- Spacing tokens -->
             <x:Double x:Key="SpacingXS">4</x:Double>
@@ -29,52 +32,74 @@
             <!-- Standardized width for single-line text inputs to ensure consistent visual rhythm -->
             <x:Double x:Key="StandardInputWidth">360</x:Double>
             <!-- Reusable style for standard single-line TextBox fields -->
-            <Style x:Key="StandardTextBoxStyle" TargetType="TextBox">
-                <Setter Property="HorizontalAlignment" Value="Left" />
-                <Setter Property="Width" Value="{StaticResource StandardInputWidth}" />
+            <Style x:Key="StandardTextBoxStyle"
+                    TargetType="TextBox">
+                <Setter Property="HorizontalAlignment"
+                        Value="Left"/>
+                <Setter Property="Width"
+                        Value="{StaticResource StandardInputWidth}"/>
             </Style>
 
             <!-- Unified SettingsCard appearance inside this window -->
             <!-- Base keyed style so we can derive specialized variants (WinUI doesn't support {x:Type} syntax) -->
-            <Style x:Key="BaseSettingsCardStyle" TargetType="tkcontrols:SettingsCard">
-                <Setter Property="Margin" Value="0,0,0,18" />
-                <Setter Property="CornerRadius" Value="12" />
+            <Style x:Key="BaseSettingsCardStyle"
+                    TargetType="tkcontrols:SettingsCard">
+                <Setter Property="Margin"
+                        Value="0,0,0,18"/>
+                <Setter Property="CornerRadius"
+                        Value="12"/>
                 <!-- Increase outer padding to create breathing room -->
-                <Setter Property="Padding" Value="0" />
-                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorSecondaryBrush}" />
-                <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
-                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding"
+                        Value="0"/>
+                <Setter Property="Background"
+                        Value="{ThemeResource CardBackgroundFillColorSecondaryBrush}"/>
+                <Setter Property="BorderBrush"
+                        Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
+                <Setter Property="BorderThickness"
+                        Value="1"/>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="tkcontrols:SettingsCard">
                             <!-- Outer grid hosts border; inner grid adds inset (gap) so content isn't glued to rounded frame -->
-                            <Grid x:Name="RootCard" Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}">
-                                <Border CornerRadius="{TemplateBinding CornerRadius}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" />
+                            <Grid x:Name="RootCard"
+                                    Background="{TemplateBinding Background}"
+                                    CornerRadius="{TemplateBinding CornerRadius}">
+                                <Border CornerRadius="{TemplateBinding CornerRadius}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"/>
                                 <!-- Inner content area introduces consistent gap from border -->
-                                <Grid Margin="22,14,22,14" ColumnSpacing="44" VerticalAlignment="Center">
+                                <Grid Margin="22,14,22,14"
+                                        ColumnSpacing="44"
+                                        VerticalAlignment="Center">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="200" />
-                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{TemplateBinding Header}" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                    <ContentPresenter Grid.Column="1" HorizontalAlignment="Stretch" />
+                                    <TextBlock Text="{TemplateBinding Header}"
+                                            FontWeight="SemiBold"
+                                            VerticalAlignment="Center"/>
+                                    <ContentPresenter Grid.Column="1"
+                                            HorizontalAlignment="Stretch"/>
                                 </Grid>
                                 <VisualStateManager.VisualStateGroups>
                                     <VisualStateGroup x:Name="CommonStates">
-                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="Normal"/>
                                         <VisualState x:Name="PointerOver">
                                             <VisualState.Setters>
-                                                <Setter Target="RootCard.Background" Value="#FFF7F7F7" />
+                                                <Setter Target="RootCard.Background"
+                                                        Value="#FFF7F7F7"/>
                                             </VisualState.Setters>
                                         </VisualState>
                                         <VisualState x:Name="Pressed">
                                             <VisualState.Setters>
-                                                <Setter Target="RootCard.Background" Value="#FFEFEFEF" />
+                                                <Setter Target="RootCard.Background"
+                                                        Value="#FFEFEFEF"/>
                                             </VisualState.Setters>
                                         </VisualState>
                                         <VisualState x:Name="Disabled">
                                             <VisualState.Setters>
-                                                <Setter Target="RootCard.Opacity" Value="0.55" />
+                                                <Setter Target="RootCard.Opacity"
+                                                        Value="0.55"/>
                                             </VisualState.Setters>
                                         </VisualState>
                                     </VisualStateGroup>
@@ -86,34 +111,45 @@
             </Style>
 
             <!-- Implicit style applied to all SettingsCard instances by default -->
-            <Style TargetType="tkcontrols:SettingsCard" BasedOn="{StaticResource BaseSettingsCardStyle}" />
+            <Style TargetType="tkcontrols:SettingsCard"
+                    BasedOn="{StaticResource BaseSettingsCardStyle}"/>
 
             <!-- Flush-left variant: remove side margin so content starts at card edge -->
-            <Style x:Key="SettingsCardFlush" TargetType="tkcontrols:SettingsCard" BasedOn="{StaticResource BaseSettingsCardStyle}">
+            <Style x:Key="SettingsCardFlush"
+                    TargetType="tkcontrols:SettingsCard"
+                    BasedOn="{StaticResource BaseSettingsCardStyle}">
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="tkcontrols:SettingsCard">
-                            <Grid x:Name="RootCard" Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}">
-                                <Border CornerRadius="{TemplateBinding CornerRadius}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" />
-                                <Grid Margin="12,10,16,10" VerticalAlignment="Center">
-                                    <ContentPresenter HorizontalAlignment="Stretch" />
+                            <Grid x:Name="RootCard"
+                                    Background="{TemplateBinding Background}"
+                                    CornerRadius="{TemplateBinding CornerRadius}">
+                                <Border CornerRadius="{TemplateBinding CornerRadius}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"/>
+                                <Grid Margin="12,10,16,10"
+                                        VerticalAlignment="Center">
+                                    <ContentPresenter HorizontalAlignment="Stretch"/>
                                 </Grid>
                                 <VisualStateManager.VisualStateGroups>
                                     <VisualStateGroup x:Name="CommonStates">
-                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="Normal"/>
                                         <VisualState x:Name="PointerOver">
                                             <VisualState.Setters>
-                                                <Setter Target="RootCard.Background" Value="#FFF7F7F7" />
+                                                <Setter Target="RootCard.Background"
+                                                        Value="#FFF7F7F7"/>
                                             </VisualState.Setters>
                                         </VisualState>
                                         <VisualState x:Name="Pressed">
                                             <VisualState.Setters>
-                                                <Setter Target="RootCard.Background" Value="#FFEFEFEF" />
+                                                <Setter Target="RootCard.Background"
+                                                        Value="#FFEFEFEF"/>
                                             </VisualState.Setters>
                                         </VisualState>
                                         <VisualState x:Name="Disabled">
                                             <VisualState.Setters>
-                                                <Setter Target="RootCard.Opacity" Value="0.55" />
+                                                <Setter Target="RootCard.Opacity"
+                                                        Value="0.55"/>
                                             </VisualState.Setters>
                                         </VisualState>
                                     </VisualStateGroup>
@@ -125,37 +161,53 @@
             </Style>
 
             <!-- Small square icon button style (fallback if not already provided elsewhere) -->
-            <Style x:Key="ButtonStyleSmallIcon" TargetType="Button">
-                <Setter Property="Background" Value="Transparent" />
-                <Setter Property="BorderBrush" Value="Transparent" />
-                <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="CornerRadius" Value="6" />
-                <Setter Property="Padding" Value="4" />
-                <Setter Property="HorizontalAlignment" Value="Center" />
-                <Setter Property="VerticalAlignment" Value="Center" />
-                <Setter Property="Width" Value="28" />
-                <Setter Property="Height" Value="28" />
+            <Style x:Key="ButtonStyleSmallIcon"
+                    TargetType="Button">
+                <Setter Property="Background"
+                        Value="Transparent"/>
+                <Setter Property="BorderBrush"
+                        Value="Transparent"/>
+                <Setter Property="BorderThickness"
+                        Value="0"/>
+                <Setter Property="CornerRadius"
+                        Value="6"/>
+                <Setter Property="Padding"
+                        Value="4"/>
+                <Setter Property="HorizontalAlignment"
+                        Value="Center"/>
+                <Setter Property="VerticalAlignment"
+                        Value="Center"/>
+                <Setter Property="Width"
+                        Value="28"/>
+                <Setter Property="Height"
+                        Value="28"/>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
-                            <Grid x:Name="Root" Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}">
-                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <Grid x:Name="Root"
+                                    Background="{TemplateBinding Background}"
+                                    CornerRadius="{TemplateBinding CornerRadius}">
+                                <ContentPresenter HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"/>
                                 <VisualStateManager.VisualStateGroups>
                                     <VisualStateGroup x:Name="CommonStates">
-                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="Normal"/>
                                         <VisualState x:Name="PointerOver">
                                             <VisualState.Setters>
-                                                <Setter Target="Root.Background" Value="#14000000" />
+                                                <Setter Target="Root.Background"
+                                                        Value="#14000000"/>
                                             </VisualState.Setters>
                                         </VisualState>
                                         <VisualState x:Name="Pressed">
                                             <VisualState.Setters>
-                                                <Setter Target="Root.Background" Value="#22000000" />
+                                                <Setter Target="Root.Background"
+                                                        Value="#22000000"/>
                                             </VisualState.Setters>
                                         </VisualState>
                                         <VisualState x:Name="Disabled">
                                             <VisualState.Setters>
-                                                <Setter Target="Root.Opacity" Value="0.5" />
+                                                <Setter Target="Root.Opacity"
+                                                        Value="0.5"/>
                                             </VisualState.Setters>
                                         </VisualState>
                                     </VisualStateGroup>
@@ -167,18 +219,25 @@
             </Style>
 
             <!-- List item style (shared) -->
-            <Style x:Key="ToolbarListItemStyle" TargetType="ListViewItem">
-                <Setter Property="Margin" Value="0,4,0,0" />
-                <Setter Property="Padding" Value="10,8" />
-                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Style x:Key="ToolbarListItemStyle"
+                    TargetType="ListViewItem">
+                <Setter Property="Margin"
+                        Value="0,4,0,0"/>
+                <Setter Property="Padding"
+                        Value="10,8"/>
+                <Setter Property="HorizontalContentAlignment"
+                        Value="Stretch"/>
                 <!-- Base (normal) background kept subtle neutral -->
-                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+                <Setter Property="Background"
+                        Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ListViewItem">
-                            <Grid x:Name="RootGrid" Background="{TemplateBinding Background}" CornerRadius="8">
+                            <Grid x:Name="RootGrid"
+                                    Background="{TemplateBinding Background}"
+                                    CornerRadius="8">
                                 <Grid.RowDefinitions>
-                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
                                 <!-- Main content presenter -->
                                 <ContentPresenter
@@ -187,64 +246,73 @@
                                     Content="{TemplateBinding Content}"
                                     ContentTemplate="{TemplateBinding ContentTemplate}"
                                     Margin="{TemplateBinding Padding}"
-                                    VerticalAlignment="Center" />
+                                    VerticalAlignment="Center"/>
                                 <!-- Overlay accent stripe -->
-                <!-- Accent stripe (Strategy A): visibility bound directly to IsSelected; older opacity/state logic removed -->
-                <Border x:Name="AccentStripe"
-                    Width="3"
-                    Margin="0,2,0,2"
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Stretch"
-                    CornerRadius="2"
-                    Background="#FF1E5AA7"
-                    Visibility="{Binding IsSelected, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource BoolToVisibilityConverter}}"
-                    IsHitTestVisible="False" />
+                                <!-- Accent stripe (Strategy A): visibility bound directly to IsSelected; older opacity/state logic removed -->
+                                <Border x:Name="AccentStripe"
+                                        Width="3"
+                                        Margin="0,2,0,2"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Stretch"
+                                        CornerRadius="2"
+                                        Background="#FF1E5AA7"
+                                        Visibility="{Binding IsSelected, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource BoolToVisibilityConverter}}"
+                                        IsHitTestVisible="False"/>
                                 <VisualStateManager.VisualStateGroups>
                                     <VisualStateGroup x:Name="CommonStates">
-                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="Normal"/>
                                         <VisualState x:Name="PointerOver">
                                             <VisualState.Setters>
                                                 <!-- Light hover -->
-                                                <Setter Target="RootGrid.Background" Value="#FFF5F5F5" />
+                                                <Setter Target="RootGrid.Background"
+                                                        Value="#FFF5F5F5"/>
                                             </VisualState.Setters>
                                         </VisualState>
                                         <VisualState x:Name="Pressed">
                                             <VisualState.Setters>
-                                                <Setter Target="RootGrid.Background" Value="#FFEAEAEA" />
+                                                <Setter Target="RootGrid.Background"
+                                                        Value="#FFEAEAEA"/>
                                             </VisualState.Setters>
                                         </VisualState>
                                         <VisualState x:Name="Disabled">
                                             <VisualState.Setters>
-                                                <Setter Target="RootGrid.Opacity" Value="0.45" />
+                                                <Setter Target="RootGrid.Opacity"
+                                                        Value="0.45"/>
                                             </VisualState.Setters>
                                         </VisualState>
                                     </VisualStateGroup>
                                     <VisualStateGroup x:Name="SelectionStates">
-                                        <VisualState x:Name="Unselected" />
+                                        <VisualState x:Name="Unselected"/>
                                         <VisualState x:Name="Selected">
                                             <VisualState.Setters>
-                                                <Setter Target="RootGrid.Background" Value="#FFFFFFFF" />
+                                                <Setter Target="RootGrid.Background"
+                                                        Value="#FFFFFFFF"/>
                                             </VisualState.Setters>
                                         </VisualState>
                                         <VisualState x:Name="SelectedPointerOver">
                                             <VisualState.Setters>
-                                                <Setter Target="RootGrid.Background" Value="#FFF5F5F5" />
+                                                <Setter Target="RootGrid.Background"
+                                                        Value="#FFF5F5F5"/>
                                             </VisualState.Setters>
                                         </VisualState>
                                         <VisualState x:Name="SelectedPressed">
                                             <VisualState.Setters>
-                                                <Setter Target="RootGrid.Background" Value="#FFEDEDED" />
+                                                <Setter Target="RootGrid.Background"
+                                                        Value="#FFEDEDED"/>
                                             </VisualState.Setters>
                                         </VisualState>
                                         <VisualState x:Name="SelectedUnfocused">
                                             <VisualState.Setters>
-                                                <Setter Target="RootGrid.Background" Value="#FFFFFFFF" />
+                                                <Setter Target="RootGrid.Background"
+                                                        Value="#FFFFFFFF"/>
                                             </VisualState.Setters>
                                         </VisualState>
                                         <VisualState x:Name="SelectedDisabled">
                                             <VisualState.Setters>
-                                                <Setter Target="RootGrid.Background" Value="#FFF8F8F8" />
-                                                <Setter Target="RootGrid.Opacity" Value="0.5" />
+                                                <Setter Target="RootGrid.Background"
+                                                        Value="#FFF8F8F8"/>
+                                                <Setter Target="RootGrid.Opacity"
+                                                        Value="0.5"/>
                                             </VisualState.Setters>
                                         </VisualState>
                                     </VisualStateGroup>
@@ -256,23 +324,39 @@
             </Style>
         </Grid.Resources>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <!-- Modern title bar (drag region) -->
-        <Grid x:Name="AppTitleBar" Height="48" Background="Transparent" Padding="12,0,0,0">
+        <Grid x:Name="AppTitleBar"
+                Height="48"
+                Background="Transparent"
+                Padding="12,0,0,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="96" />
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="96"/>
             </Grid.ColumnDefinitions>
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="12">
-                <Border Width="32" Height="32" CornerRadius="8" Background="{ThemeResource SubtleFillColorSecondaryBrush}" VerticalAlignment="Center">
-                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE713;" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <StackPanel Orientation="Horizontal"
+                    VerticalAlignment="Center"
+                    Spacing="12">
+                <Border Width="32"
+                        Height="32"
+                        CornerRadius="8"
+                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                        VerticalAlignment="Center">
+                    <FontIcon FontFamily="Segoe MDL2 Assets"
+                            Glyph="&#xE713;"
+                            FontSize="16"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"/>
                 </Border>
-                <StackPanel Spacing="0" VerticalAlignment="Center">
-                    <TextBlock Text="Toolbar Settings" FontSize="14" FontWeight="Normal" />
+                <StackPanel Spacing="0"
+                        VerticalAlignment="Center">
+                    <TextBlock Text="Toolbar Settings"
+                            FontSize="14"
+                            FontWeight="Normal"/>
                 </StackPanel>
             </StackPanel>
         </Grid>
@@ -280,27 +364,137 @@
         <!-- Main two‑column layout -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition x:Name="LeftPaneColumn" Width="300" />
-                <ColumnDefinition Width="8" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="LeftPaneColumn"
+                        Width="300"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
             <!-- Left pane: group list + group properties cards -->
-            <ScrollViewer Grid.Column="0" HorizontalScrollMode="Disabled" VerticalScrollBarVisibility="Auto" Padding="0">
-                <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" Padding="18,14,16,24" CornerRadius="14" Margin="8,8,0,12">
+            <ScrollViewer Grid.Column="0"
+                    HorizontalScrollMode="Disabled"
+                    VerticalScrollBarVisibility="Auto"
+                    Padding="0">
+                <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}"
+                        Padding="18,14,16,24"
+                        CornerRadius="14"
+                        Margin="8,8,0,12">
                     <StackPanel Spacing="12">
+                        <!-- Profile Management Section -->
                         <Grid Margin="0,0,0,4">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
-                                <TextBlock Text="Groups" FontSize="15" FontWeight="SemiBold" />
-                                <Rectangle Width="1" Height="16" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Opacity="0.35" />
+                            <StackPanel Orientation="Horizontal"
+                                    VerticalAlignment="Center"
+                                    Spacing="8">
+                                <TextBlock Text="Profiles"
+                                        FontSize="15"
+                                        FontWeight="SemiBold"/>
+                                <Rectangle Width="1"
+                                        Height="16"
+                                        Fill="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        Opacity="0.35"/>
                             </StackPanel>
-                            <StackPanel Orientation="Horizontal" Grid.Column="1" Spacing="4">
-                                <Button Style="{StaticResource AccentButtonStyle}" MinWidth="0" Padding="10,4" Content="Add" Click="OnAddGroup" />
-                                <Button MinWidth="0" Padding="10,4" Content="Remove" Click="OnRemoveSelectedGroup" IsEnabled="{x:Bind ViewModel.HasSelectedGroup, Mode=OneWay}" />
+                            <StackPanel Orientation="Horizontal"
+                                    Grid.Column="1"
+                                    Spacing="4">
+                                <Button Style="{StaticResource AccentButtonStyle}"
+                                        MinWidth="0"
+                                        Padding="10,4"
+                                        Content="Add"
+                                        Click="OnAddProfile"/>
+                                <Button MinWidth="0"
+                                        Padding="10,4"
+                                        Content="Remove"
+                                        Click="OnRemoveSelectedProfile"
+                                        IsEnabled="False"/>
+                            </StackPanel>
+                        </Grid>
+                        <ListView x:Name="ProfilesList"
+                                  SelectionMode="Single"
+                                  BorderThickness="0"
+                                  IsItemClickEnabled="True"
+                                  MinHeight="80"
+                                  ItemContainerStyle="{StaticResource ToolbarListItemStyle}"
+                                  SelectionChanged="OnProfileSelectionChanged">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="profiles:ProfileMeta">
+                                    <Grid ColumnSpacing="6"
+                                            Padding="4,0,4,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="ProfileNameText"
+                                                Text="{x:Bind Name, Mode=OneTime}"
+                                                FontWeight="Normal"
+                                                VerticalAlignment="Center"/>
+                                        <TextBox x:Name="ProfileNameEdit"
+                                                Text="{x:Bind Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                Visibility="Collapsed"
+                                                VerticalAlignment="Center"
+                                                MinWidth="80"
+                                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                KeyDown="OnProfileNameTextBoxKeyDown"
+                                                LostFocus="OnProfileNameTextBoxLostFocus"/>
+                                        <Button Grid.Column="1"
+                                                x:Name="RenameProfileButton"
+                                                Click="OnStartRenameProfile"
+                                                Tag="{x:Bind }"
+                                                Style="{StaticResource ButtonStyleSmallIcon}"
+                                                ToolTipService.ToolTip="Rename"
+                                                Width="28"
+                                                Height="28"
+                                                Padding="0"
+                                                HorizontalAlignment="Right"
+                                                VerticalAlignment="Center">
+                                            <FontIcon FontFamily="Segoe MDL2 Assets"
+                                                    Glyph="&#xE70F;"
+                                                    FontSize="14"/>
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                            <ListView.Resources>
+                                <Style TargetType="ListViewItem"
+                                        BasedOn="{StaticResource ToolbarListItemStyle}">
+                                    <Setter Property="Padding"
+                                            Value="4,6"/>
+                                </Style>
+                            </ListView.Resources>
+                        </ListView>
+
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal"
+                                    VerticalAlignment="Center"
+                                    Spacing="8">
+                                <TextBlock Text="Groups"
+                                        FontSize="15"
+                                        FontWeight="SemiBold"/>
+                                <Rectangle Width="1"
+                                        Height="16"
+                                        Fill="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        Opacity="0.35"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal"
+                                    Grid.Column="1"
+                                    Spacing="4">
+                                <Button Style="{StaticResource AccentButtonStyle}"
+                                        MinWidth="0"
+                                        Padding="10,4"
+                                        Content="Add"
+                                        Click="OnAddGroup"/>
+                                <Button MinWidth="0"
+                                        Padding="10,4"
+                                        Content="Remove"
+                                        Click="OnRemoveSelectedGroup"
+                                        IsEnabled="{x:Bind ViewModel.HasSelectedGroup, Mode=OneWay}"/>
                             </StackPanel>
                         </Grid>
                         <ListView x:Name="GroupsList"
@@ -313,22 +507,47 @@
                                   ItemContainerStyle="{StaticResource ToolbarListItemStyle}">
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="local:ButtonGroup">
-                                    <Grid ColumnSpacing="6" Padding="4,0,4,0">
+                                    <Grid ColumnSpacing="6"
+                                            Padding="4,0,4,0">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock x:Name="NameText" Text="{x:Bind Name, Mode=OneWay}" FontWeight="Normal" VerticalAlignment="Center" />
-                                        <TextBox x:Name="NameEdit" Text="{x:Bind Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Visibility="Collapsed" VerticalAlignment="Center" MinWidth="80" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" KeyDown="OnGroupNameTextBoxKeyDown" LostFocus="OnGroupNameTextBoxLostFocus" />
-                                        <Button Grid.Column="1" x:Name="RenameButton" Click="OnStartRenameGroup" Tag="{x:Bind }" Style="{StaticResource ButtonStyleSmallIcon}" ToolTipService.ToolTip="Rename" Width="28" Height="28" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE70F;" FontSize="14" />
+                                        <TextBlock x:Name="NameText"
+                                                Text="{x:Bind Name, Mode=OneWay}"
+                                                FontWeight="Normal"
+                                                VerticalAlignment="Center"/>
+                                        <TextBox x:Name="NameEdit"
+                                                Text="{x:Bind Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                Visibility="Collapsed"
+                                                VerticalAlignment="Center"
+                                                MinWidth="80"
+                                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                KeyDown="OnGroupNameTextBoxKeyDown"
+                                                LostFocus="OnGroupNameTextBoxLostFocus"/>
+                                        <Button Grid.Column="1"
+                                                x:Name="RenameButton"
+                                                Click="OnStartRenameGroup"
+                                                Tag="{x:Bind }"
+                                                Style="{StaticResource ButtonStyleSmallIcon}"
+                                                ToolTipService.ToolTip="Rename"
+                                                Width="28"
+                                                Height="28"
+                                                Padding="0"
+                                                HorizontalAlignment="Right"
+                                                VerticalAlignment="Center">
+                                            <FontIcon FontFamily="Segoe MDL2 Assets"
+                                                    Glyph="&#xE70F;"
+                                                    FontSize="14"/>
                                         </Button>
                                     </Grid>
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                             <ListView.Resources>
-                                <Style TargetType="ListViewItem" BasedOn="{StaticResource ToolbarListItemStyle}">
-                                    <Setter Property="Padding" Value="4,6" />
+                                <Style TargetType="ListViewItem"
+                                        BasedOn="{StaticResource ToolbarListItemStyle}">
+                                    <Setter Property="Padding"
+                                            Value="4,6"/>
                                 </Style>
                             </ListView.Resources>
                         </ListView>
@@ -337,40 +556,136 @@
             </ScrollViewer>
 
             <!-- Divider line -->
-            <Border Grid.Column="1" Background="{ThemeResource CardStrokeColorDefaultBrush}" Opacity="0.4" />
+            <Border Grid.Column="1"
+                    Background="{ThemeResource CardStrokeColorDefaultBrush}"
+                    Opacity="0.4"/>
 
             <!-- Right pane: buttons + button details -->
-            <ScrollViewer Grid.Column="2" Padding="0" VerticalScrollBarVisibility="Auto">
-                <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" CornerRadius="18" Padding="40,28,44,52" Margin="4,16,16,20">
+            <ScrollViewer Grid.Column="2"
+                    Padding="0"
+                    VerticalScrollBarVisibility="Auto">
+                <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}"
+                        CornerRadius="18"
+                        Padding="40,28,44,52"
+                        Margin="4,16,16,20">
                     <StackPanel Spacing="26">
-                        <!-- Group Settings Card (replaces expander) -->
-                        <tkcontrols:SettingsCard Style="{StaticResource SettingsCardFlush}" Visibility="{x:Bind ViewModel.HasSelectedGroup, Mode=OneWay}">
-                            <!-- Minimal Grid enables left side to stretch fully while toggle sizes to content -->
-                            <Grid ColumnSpacing="32" VerticalAlignment="Center">
+                        <!-- Profile Settings Card -->
+                        <tkcontrols:SettingsCard x:Name="ProfileSettingsCard"
+                                Style="{StaticResource SettingsCardFlush}"
+                                Visibility="Collapsed">
+                            <Grid ColumnSpacing="32"
+                                    VerticalAlignment="Center">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" Orientation="Vertical" Spacing="4" VerticalAlignment="Center">
-                                    <TextBlock Text="{x:Bind ViewModel.SelectedGroup.Name, Mode=OneWay}" FontSize="15" FontWeight="SemiBold" />
-                                    <TextBlock Text="{x:Bind ViewModel.SelectedGroup.Description, Mode=OneWay}" Opacity="0.85" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                <StackPanel Grid.Column="0"
+                                        Orientation="Vertical"
+                                        Spacing="4"
+                                        VerticalAlignment="Center">
+                                    <TextBlock x:Name="SelectedProfileNameText"
+                                            Text="Profile Name"
+                                            FontSize="15"
+                                            FontWeight="SemiBold"/>
+                                    <TextBlock Text="Configure actions for this profile"
+                                            Opacity="0.85"
+                                            TextWrapping="NoWrap"
+                                            TextTrimming="CharacterEllipsis"/>
                                 </StackPanel>
-                                <ToggleSwitch Grid.Column="1" IsOn="{x:Bind ViewModel.SelectedGroup.IsEnabled, Mode=TwoWay}" VerticalAlignment="Center" />
+                            </Grid>
+                        </tkcontrols:SettingsCard>
+
+                        <!-- Actions header -->
+                        <StackPanel x:Name="ActionsHeaderPanel"
+                                Orientation="Horizontal"
+                                Spacing="10"
+                                Visibility="Collapsed"
+                                VerticalAlignment="Center">
+                            <TextBlock Text="Actions"
+                                    FontSize="15"
+                                    FontWeight="SemiBold"
+                                    VerticalAlignment="Center"/>
+                            <Rectangle Width="1"
+                                    Height="18"
+                                    Fill="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    Opacity="0.35"
+                                    VerticalAlignment="Center"/>
+                            <TextBlock Text="Enable or disable actions for this profile"
+                                    Opacity="0.7"
+                                    VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <!-- Actions list -->
+                        <ScrollViewer x:Name="ActionsScrollViewer"
+                                MaxHeight="400"
+                                VerticalScrollBarVisibility="Auto"
+                                Visibility="Collapsed">
+                            <StackPanel x:Name="ActionsPanel"
+                                    Spacing="8">
+                                <!-- Actions will be dynamically populated here -->
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- Group Settings Card (replaces expander) -->
+                        <tkcontrols:SettingsCard Style="{StaticResource SettingsCardFlush}"
+                                Visibility="{x:Bind ViewModel.HasSelectedGroup, Mode=OneWay}">
+                            <!-- Minimal Grid enables left side to stretch fully while toggle sizes to content -->
+                            <Grid ColumnSpacing="32"
+                                    VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0"
+                                        Orientation="Vertical"
+                                        Spacing="4"
+                                        VerticalAlignment="Center">
+                                    <TextBlock Text="{x:Bind ViewModel.SelectedGroup.Name, Mode=OneWay}"
+                                            FontSize="15"
+                                            FontWeight="SemiBold"/>
+                                    <TextBlock Text="{x:Bind ViewModel.SelectedGroup.Description, Mode=OneWay}"
+                                            Opacity="0.85"
+                                            TextWrapping="NoWrap"
+                                            TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1"
+                                        IsOn="{x:Bind ViewModel.SelectedGroup.IsEnabled, Mode=TwoWay}"
+                                        VerticalAlignment="Center"/>
                             </Grid>
                         </tkcontrols:SettingsCard>
 
                         <!-- Buttons header with add/remove -->
-                        <StackPanel Orientation="Horizontal" Spacing="10" Visibility="{x:Bind ViewModel.HasSelectedGroup, Mode=OneWay}" VerticalAlignment="Center">
-                            <TextBlock Text="Buttons" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
-                            <Rectangle Width="1" Height="18" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Opacity="0.35" VerticalAlignment="Center" />
-                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                <Button Content="Add" Click="OnAddButton" Tag="{x:Bind ViewModel.SelectedGroup}" VerticalAlignment="Center" />
-                                <Button Content="Remove" Click="OnRemoveButton" Tag="{x:Bind ViewModel.SelectedButton}" IsEnabled="{x:Bind ViewModel.HasSelectedButton, Mode=OneWay}" VerticalAlignment="Center" />
+                        <StackPanel Orientation="Horizontal"
+                                Spacing="10"
+                                Visibility="{x:Bind ViewModel.HasSelectedGroup, Mode=OneWay}"
+                                VerticalAlignment="Center">
+                            <TextBlock Text="Buttons"
+                                    FontSize="15"
+                                    FontWeight="SemiBold"
+                                    VerticalAlignment="Center"/>
+                            <Rectangle Width="1"
+                                    Height="18"
+                                    Fill="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    Opacity="0.35"
+                                    VerticalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal"
+                                    Spacing="6"
+                                    VerticalAlignment="Center">
+                                <Button Content="Add"
+                                        Click="OnAddButton"
+                                        Tag="{x:Bind ViewModel.SelectedGroup}"
+                                        VerticalAlignment="Center"/>
+                                <Button Content="Remove"
+                                        Click="OnRemoveButton"
+                                        Tag="{x:Bind ViewModel.SelectedButton}"
+                                        IsEnabled="{x:Bind ViewModel.HasSelectedButton, Mode=OneWay}"
+                                        VerticalAlignment="Center"/>
                             </StackPanel>
                         </StackPanel>
 
                         <!-- Buttons as expandable settings -->
-                        <ItemsControl Visibility="{x:Bind ViewModel.HasSelectedGroup, Mode=OneWay}" ItemsSource="{x:Bind ViewModel.SelectedGroup.Buttons, Mode=OneWay}">
+                        <ItemsControl Visibility="{x:Bind ViewModel.HasSelectedGroup, Mode=OneWay}"
+                                ItemsSource="{x:Bind ViewModel.SelectedGroup.Buttons, Mode=OneWay}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="local:ToolbarButton">
                                     <tkcontrols:SettingsExpander IsExpanded="False"
@@ -378,50 +693,68 @@
                                                                  Description="{x:Bind Description, Mode=OneWay}">
                                         <tkcontrols:SettingsExpander.Items>
                                             <tkcontrols:SettingsCard Header="Enabled">
-                                                <ToggleSwitch IsOn="{x:Bind IsEnabled, Mode=TwoWay}" />
+                                                <ToggleSwitch IsOn="{x:Bind IsEnabled, Mode=TwoWay}"/>
                                             </tkcontrols:SettingsCard>
                                             <tkcontrols:SettingsCard Header="Name">
-                                                <TextBox Text="{x:Bind Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource StandardTextBoxStyle}" />
+                                                <TextBox Text="{x:Bind Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                        Style="{StaticResource StandardTextBoxStyle}"/>
                                             </tkcontrols:SettingsCard>
                                             <tkcontrols:SettingsCard Header="Description">
-                                                <TextBox Text="{x:Bind Description, Mode=TwoWay}" Style="{StaticResource StandardTextBoxStyle}" />
+                                                <TextBox Text="{x:Bind Description, Mode=TwoWay}"
+                                                        Style="{StaticResource StandardTextBoxStyle}"/>
                                             </tkcontrols:SettingsCard>
                                             <tkcontrols:SettingsCard Header="Icon Type">
                                                 <ComboBox SelectedIndex="{x:Bind IconTypeIndex, Mode=TwoWay}">
-                                                    <ComboBoxItem Content="Glyph" />
-                                                    <ComboBoxItem Content="Image" />
+                                                    <ComboBoxItem Content="Glyph"/>
+                                                    <ComboBoxItem Content="Image"/>
                                                 </ComboBox>
                                             </tkcontrols:SettingsCard>
                                             <tkcontrols:SettingsCard Header="Glyph">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="48" />
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="48"/>
                                                     </Grid.ColumnDefinitions>
-                                                    <TextBox Grid.Column="0" Text="{x:Bind IconGlyph, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource StandardTextBoxStyle}" />
-                                                    <Border Grid.Column="1" Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4" Margin="8,0,0,0">
-                                                        <TextBlock Text="{x:Bind IconGlyph}" FontFamily="Segoe MDL2 Assets" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    <TextBox Grid.Column="0"
+                                                            Text="{x:Bind IconGlyph, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                            Style="{StaticResource StandardTextBoxStyle}"/>
+                                                    <Border Grid.Column="1"
+                                                            Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                                            CornerRadius="4"
+                                                            Margin="8,0,0,0">
+                                                        <TextBlock Text="{x:Bind IconGlyph}"
+                                                                FontFamily="Segoe MDL2 Assets"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center"/>
                                                     </Border>
                                                 </Grid>
                                             </tkcontrols:SettingsCard>
                                             <tkcontrols:SettingsCard Header="Image Path">
                                                 <Grid ColumnSpacing="8">
                                                     <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
                                                     </Grid.ColumnDefinitions>
-                                                    <TextBox Grid.Column="0" Text="{x:Bind IconPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource StandardTextBoxStyle}" />
-                                                    <Button Grid.Column="1" Content="Browse" Click="OnBrowseIcon" Tag="{x:Bind }" />
+                                                    <TextBox Grid.Column="0"
+                                                            Text="{x:Bind IconPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                            Style="{StaticResource StandardTextBoxStyle}"/>
+                                                    <Button Grid.Column="1"
+                                                            Content="Browse"
+                                                            Click="OnBrowseIcon"
+                                                            Tag="{x:Bind }"/>
                                                 </Grid>
                                             </tkcontrols:SettingsCard>
                                             <tkcontrols:SettingsCard Header="Command">
-                                                <TextBox Text="{x:Bind Action.Command, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource StandardTextBoxStyle}" />
+                                                <TextBox Text="{x:Bind Action.Command, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                        Style="{StaticResource StandardTextBoxStyle}"/>
                                             </tkcontrols:SettingsCard>
                                             <tkcontrols:SettingsCard Header="Arguments">
-                                                <TextBox Text="{x:Bind Action.Arguments, Mode=TwoWay}" Style="{StaticResource StandardTextBoxStyle}" />
+                                                <TextBox Text="{x:Bind Action.Arguments, Mode=TwoWay}"
+                                                        Style="{StaticResource StandardTextBoxStyle}"/>
                                             </tkcontrols:SettingsCard>
                                             <tkcontrols:SettingsCard Header="Working Directory">
-                                                <TextBox Text="{x:Bind Action.WorkingDirectory, Mode=TwoWay}" Style="{StaticResource StandardTextBoxStyle}" />
+                                                <TextBox Text="{x:Bind Action.WorkingDirectory, Mode=TwoWay}"
+                                                        Style="{StaticResource StandardTextBoxStyle}"/>
                                             </tkcontrols:SettingsCard>
                                         </tkcontrols:SettingsExpander.Items>
                                     </tkcontrols:SettingsExpander>
@@ -429,9 +762,16 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <StackPanel Visibility="{x:Bind ViewModel.HasNoSelectedGroup, Mode=OneWay}" HorizontalAlignment="Center" Margin="0,60,0,0" Spacing="12">
-                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE713;" FontSize="42" Opacity="0.25" />
-                            <TextBlock Text="Select a group to configure" Opacity="0.6" />
+                        <StackPanel Visibility="{x:Bind ViewModel.HasNoSelectedGroup, Mode=OneWay}"
+                                HorizontalAlignment="Center"
+                                Margin="0,60,0,0"
+                                Spacing="12">
+                            <FontIcon FontFamily="Segoe MDL2 Assets"
+                                    Glyph="&#xE713;"
+                                    FontSize="42"
+                                    Opacity="0.25"/>
+                            <TextBlock Text="Select a group to configure"
+                                    Opacity="0.6"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>

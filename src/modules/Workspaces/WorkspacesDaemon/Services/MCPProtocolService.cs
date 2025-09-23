@@ -62,23 +62,38 @@ public class MCPProtocolService
 
                 try
                 {
+                    // DEBUG: Log the incoming message to a file for debugging
+                    await LogDebugMessage($"RECEIVED: {line}");
+
                     var request = JsonSerializer.Deserialize<MCPRequest>(line, _jsonOptions);
                     if (request != null)
                     {
+                        // DEBUG: Log the parsed request
+                        await LogDebugMessage($"PARSED: Method={request.Method}, Id={request.Id}");
+
                         var response = await ProcessRequestAsync(request);
                         var responseJson = JsonSerializer.Serialize(response, _jsonOptions);
+
+                        // DEBUG: Log the response being sent
+                        await LogDebugMessage($"SENDING: {responseJson}");
 
                         await writer.WriteLineAsync(responseJson);
                     }
                 }
-                catch (JsonException)
+                catch (JsonException jsonEx)
                 {
+                    // DEBUG: Log JSON parse errors
+                    await LogDebugMessage($"JSON PARSE ERROR: {jsonEx.Message} for input: {line}");
+
                     var errorResponse = CreateErrorResponse(null, -32700, "Parse error", null);
                     var errorJson = JsonSerializer.Serialize(errorResponse, _jsonOptions);
                     await writer.WriteLineAsync(errorJson);
                 }
                 catch (Exception ex)
                 {
+                    // DEBUG: Log general errors
+                    await LogDebugMessage($"GENERAL ERROR: {ex.Message} for input: {line}");
+
                     var errorResponse = CreateErrorResponse(null, -32603, "Internal error", ex.Message);
                     var errorJson = JsonSerializer.Serialize(errorResponse, _jsonOptions);
                     await writer.WriteLineAsync(errorJson);
@@ -272,15 +287,21 @@ public class MCPProtocolService
             var result = await ExecuteToolAsync(toolCall.Name, toolCall.Arguments);
             var snapshot = _stateProvider.Current;
 
+            // Format result according to MCP specification for VS Code compatibility
+            var resultJson = JsonSerializer.Serialize(result, _jsonOptions);
+
             return new MCPResponse
             {
                 Id = request.Id,
                 Result = new
                 {
-                    workspaceVersion = snapshot?.Version ?? 0,
                     content = new[]
                     {
-                        new { type = "application/json", data = result },
+                        new
+                        {
+                            type = "text",
+                            text = resultJson,
+                        },
                     },
                 },
             };
@@ -537,27 +558,51 @@ public class MCPProtocolService
             };
         }
 
-        Console.Error.WriteLine($"[DEBUG] Launching workspace with ID: '{workspaceId}'");
+        Console.Error.WriteLine($"[DEBUG] Launching workspace with ID: '{workspaceId}' via WorkspacesService");
 
         try
         {
-            var exitCode = await RunProcessAsync("PowerToys.WorkspacesLauncher.exe", workspaceId, waitForExit: false);
+            using var client = new WorkspacesServiceClient();
+
+            // Check if service is available
+            var isAvailable = await client.IsServiceAvailableAsync();
+            if (!isAvailable)
+            {
+                // Fallback to legacy launcher if service is not available
+                Console.Error.WriteLine("[DEBUG] WorkspacesService not available, falling back to legacy launcher");
+                var exitCode = await RunProcessAsync("PowerToys.WorkspacesLauncher.exe", workspaceId, waitForExit: false);
+                return new
+                {
+                    success = true,
+                    exitCode,
+                    workspaceId,
+                    method = "legacy_launcher",
+                    message = "Workspace launch initiated via legacy launcher",
+                };
+            }
+
+            // Send launch request to WorkspacesService
+            var success = await client.LaunchWorkspaceAsync(workspaceId);
 
             return new
             {
-                success = true,
-                exitCode,
+                success,
                 workspaceId,
-                message = "Workspace launch initiated successfully",
+                method = "workspaces_service",
+                message = success ?
+                    "Workspace launch request sent to WorkspacesService successfully" :
+                    "Failed to send launch request to WorkspacesService",
             };
         }
         catch (Exception ex)
         {
+            Console.Error.WriteLine($"[ERROR] Exception in HandleLaunchWorkspaceAsync: {ex}");
             return new
             {
                 success = false,
                 error = ex.Message,
                 workspaceId,
+                method = "workspaces_service",
             };
         }
     }
@@ -653,5 +698,20 @@ public class MCPProtocolService
                 Data = data,
             },
         };
+    }
+
+    private async Task LogDebugMessage(string message)
+    {
+        try
+        {
+            var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture);
+            var logMessage = $"[{timestamp}] {message}{Environment.NewLine}";
+            var logPath = Path.Combine(Path.GetTempPath(), "PowerToys_MCP_Debug.log");
+            await File.AppendAllTextAsync(logPath, logMessage);
+        }
+        catch
+        {
+            // Ignore logging errors to avoid disrupting MCP communication
+        }
     }
 }

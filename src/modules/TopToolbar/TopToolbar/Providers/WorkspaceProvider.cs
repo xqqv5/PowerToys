@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading;
@@ -13,6 +14,8 @@ using System.Threading.Tasks;
 using ManagedCommon;
 using TopToolbar.Actions;
 using TopToolbar.Models;
+using TopToolbar.Services;
+using TopToolbar.Services.Profiles;
 
 namespace TopToolbar.Providers
 {
@@ -20,6 +23,8 @@ namespace TopToolbar.Providers
     {
         private const string WorkspacePrefix = "workspace.launch:";
         private readonly string _workspacesPath;
+        private readonly WorkspacesServiceClient _workspacesClient;
+        private readonly ProfileFileService _profileFileService;
 
         // Caching + watcher fields
         private readonly object _cacheLock = new();
@@ -36,11 +41,13 @@ namespace TopToolbar.Providers
         // Typed provider change event consumed by runtime
         public event EventHandler<ProviderChangedEventArgs> ProviderChanged;
 
-        public WorkspaceProvider(string workspacesPath = null)
+        public WorkspaceProvider(string workspacesPath = null, ProfileFileService profileFileService = null)
         {
             _workspacesPath = string.IsNullOrWhiteSpace(workspacesPath)
                 ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Microsoft", "PowerToys", "Workspaces", "workspaces.json")
                 : workspacesPath;
+            _workspacesClient = new WorkspacesServiceClient();
+            _profileFileService = profileFileService ?? new ProfileFileService();
             StartWatcher();
         }
 
@@ -112,8 +119,10 @@ namespace TopToolbar.Providers
         {
             var newList = await ReadWorkspacesFileAsync(CancellationToken.None).ConfigureAwait(false);
             bool changed;
+            List<WorkspaceRecord> oldList;
             lock (_cacheLock)
             {
+                oldList = new List<WorkspaceRecord>(_cached);
                 if (!HasChanged(_cached, newList))
                 {
                     return false;
@@ -129,6 +138,9 @@ namespace TopToolbar.Providers
             {
                 try
                 {
+                    // Synchronize workspace changes to all profiles
+                    SyncWorkspacesToAllProfiles(oldList, newList);
+
                     WorkspacesChanged?.Invoke(this, EventArgs.Empty);
 
                     // Use ActionsUpdated with the set of current workspace action ids
@@ -328,6 +340,28 @@ namespace TopToolbar.Providers
 
         private async Task<int> RunLauncherAsync(string workspaceId, CancellationToken cancellationToken)
         {
+            try
+            {
+                // First check if the WorkspacesService is available
+                if (!await _workspacesClient.IsServiceAvailableAsync().ConfigureAwait(false))
+                {
+                    // WorkspacesService is not available, falling back to legacy launcher
+                    return await RunLegacyLauncherAsync(workspaceId, cancellationToken).ConfigureAwait(false);
+                }
+
+                // Use the new WorkspacesService via IPC
+                var success = await _workspacesClient.LaunchWorkspaceAsync(workspaceId, cancellationToken).ConfigureAwait(false);
+                return success ? 0 : 1;
+            }
+            catch (Exception)
+            {
+                // Error using WorkspacesService, falling back to legacy launcher
+                return await RunLegacyLauncherAsync(workspaceId, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        private async Task<int> RunLegacyLauncherAsync(string workspaceId, CancellationToken cancellationToken)
+        {
             if (!TryResolveLauncher(out var launcherPath))
             {
                 throw new FileNotFoundException("PowerToys.WorkspacesLauncher.exe not found.");
@@ -444,6 +478,119 @@ namespace TopToolbar.Providers
             return Array.Empty<WorkspaceRecord>();
         }
 
+        /// <summary>
+        /// Synchronizes workspace changes to all profiles.
+        /// New workspaces are added as enabled by default.
+        /// Deleted workspaces are removed from all profiles.
+        /// </summary>
+        private void SyncWorkspacesToAllProfiles(IReadOnlyList<WorkspaceRecord> oldWorkspaces, IReadOnlyList<WorkspaceRecord> newWorkspaces)
+        {
+            try
+            {
+                if (_profileFileService == null)
+                {
+                    return;
+                }
+
+                // Get all profiles
+                var profiles = _profileFileService.GetAllProfiles();
+                if (profiles == null || profiles.Count == 0)
+                {
+                    return;
+                }
+
+                // Find added workspaces (new ones that weren't in old list)
+                var addedWorkspaces = newWorkspaces
+                    .Where(nw => !oldWorkspaces.Any(ow => string.Equals(ow.Id, nw.Id, StringComparison.Ordinal)))
+                    .ToList();
+
+                // Find removed workspaces (old ones that aren't in new list)
+                var removedWorkspaces = oldWorkspaces
+                    .Where(ow => !newWorkspaces.Any(nw => string.Equals(nw.Id, ow.Id, StringComparison.Ordinal)))
+                    .ToList();
+
+                // Update each profile
+                foreach (var profile in profiles)
+                {
+                    var modified = false;
+
+                    // Find or create the workspaces group
+                    var workspacesGroup = profile.Groups?.FirstOrDefault(g =>
+                        string.Equals(g.Id, "workspaces", StringComparison.OrdinalIgnoreCase));
+
+                    if (workspacesGroup == null)
+                    {
+                        // Create new workspaces group if it doesn't exist
+                        workspacesGroup = new ProfileGroup
+                        {
+                            Id = "workspaces",
+                            Name = "Workspaces",
+                            Description = "Saved workspace layouts",
+                            IsEnabled = true,
+                            SortOrder = 0,
+                            Actions = new List<ProfileAction>(),
+                        };
+                        profile.Groups ??= new List<ProfileGroup>();
+                        profile.Groups.Add(workspacesGroup);
+                        modified = true;
+                    }
+
+                    // Add new workspaces as enabled actions
+                    foreach (var addedWorkspace in addedWorkspaces)
+                    {
+                        var actionId = $"workspace::{addedWorkspace.Id}";
+                        var existingAction = workspacesGroup.Actions?.FirstOrDefault(a =>
+                            string.Equals(a.Id, actionId, StringComparison.Ordinal));
+
+                        if (existingAction == null)
+                        {
+                            var displayName = string.IsNullOrWhiteSpace(addedWorkspace.Name) ? addedWorkspace.Id : addedWorkspace.Name;
+                            var newAction = new ProfileAction
+                            {
+                                Id = actionId,
+                                Name = displayName,
+                                Description = addedWorkspace.Id,
+                                IsEnabled = true, // Enable new workspaces by default
+                                IconGlyph = "\uE7F1",
+                            };
+
+                            workspacesGroup.Actions ??= new List<ProfileAction>();
+                            workspacesGroup.Actions.Add(newAction);
+                            modified = true;
+                        }
+                    }
+
+                    // Remove deleted workspaces
+                    if (workspacesGroup.Actions != null)
+                    {
+                        foreach (var removedWorkspace in removedWorkspaces)
+                        {
+                            var actionId = $"workspace::{removedWorkspace.Id}";
+                            var actionToRemove = workspacesGroup.Actions.FirstOrDefault(a =>
+                                string.Equals(a.Id, actionId, StringComparison.Ordinal));
+
+                            if (actionToRemove != null)
+                            {
+                                workspacesGroup.Actions.Remove(actionToRemove);
+                                modified = true;
+                            }
+                        }
+                    }
+
+                    // Save profile if modified
+                    if (modified)
+                    {
+                        _profileFileService.SaveProfile(profile);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't fail the workspace reload
+                System.Diagnostics.Debug.WriteLine($"WorkspaceProvider: Failed to sync workspaces to profiles: {ex.Message}");
+            }
+        }
+
         public void Dispose()
         {
             if (_disposed)
@@ -487,6 +634,22 @@ namespace TopToolbar.Providers
 
                 _watcher = null;
 
+                try
+                {
+                    _workspacesClient?.Dispose();
+                }
+                catch
+                {
+                }
+
+                try
+                {
+                    _profileFileService?.Dispose();
+                }
+                catch
+                {
+                }
+
                 lock (_cacheLock)
                 {
                     _cached.Clear();
@@ -502,6 +665,68 @@ namespace TopToolbar.Providers
             {
                 GC.SuppressFinalize(this);
             }
+        }
+
+        /// <summary>
+        /// Gets default workspace groups that should be added to profiles if they don't exist.
+        /// This provides the standard workspace and MCP server groups with default enabled actions.
+        /// </summary>
+        public static async Task<List<TopToolbar.Models.ProfileGroup>> GetDefaultWorkspaceGroupsAsync()
+        {
+            var groups = new List<TopToolbar.Models.ProfileGroup>();
+
+            // Create workspace provider instance to get real workspace data
+            using var workspaceProvider = new WorkspaceProvider();
+
+            try
+            {
+                // Get actual workspace group with real workspace data
+                var context = new Actions.ActionContext();
+                var workspaceButtonGroup = await workspaceProvider.CreateGroupAsync(context, CancellationToken.None);
+
+                // Convert ButtonGroup to ProfileGroup
+                var workspacesGroup = new TopToolbar.Models.ProfileGroup
+                {
+                    Id = workspaceButtonGroup.Id,
+                    Name = workspaceButtonGroup.Name,
+                    Description = workspaceButtonGroup.Description,
+                    IsEnabled = true,
+                    SortOrder = 0,
+                    Actions = new List<TopToolbar.Models.ProfileAction>(),
+                };
+
+                // Convert each ToolbarButton to ProfileAction
+                foreach (var button in workspaceButtonGroup.Buttons)
+                {
+                    var profileAction = new TopToolbar.Models.ProfileAction
+                    {
+                        Id = button.Id,
+                        Name = button.Name,
+                        Description = button.Description,
+                        IsEnabled = true,
+                        IconGlyph = button.IconGlyph,
+                    };
+                    workspacesGroup.Actions.Add(profileAction);
+                }
+
+                groups.Add(workspacesGroup);
+            }
+            catch (Exception)
+            {
+                // If workspace provider fails, add a minimal fallback group
+                var fallbackGroup = new TopToolbar.Models.ProfileGroup
+                {
+                    Id = "workspaces",
+                    Name = "Workspaces",
+                    Description = "Saved workspace layouts",
+                    IsEnabled = true,
+                    SortOrder = 0,
+                    Actions = new List<TopToolbar.Models.ProfileAction>(),
+                };
+                groups.Add(fallbackGroup);
+            }
+
+            return groups;
         }
 
         private sealed record WorkspaceRecord(string Id, string Name);

@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "WindowArrangerHelper.h"
 
+#include <chrono>
 #include <filesystem>
 
 #include <common/utils/OnThreadExecutor.h>
@@ -39,11 +40,22 @@ void WindowArrangerHelper::Launch(const std::wstring& projectId, bool elevated, 
 {
     Logger::trace(L"Starting WorkspacesWindowArranger");
 
+    auto startTime = std::chrono::high_resolution_clock::now();
+    
     TCHAR buffer[MAX_PATH] = { 0 };
     GetModuleFileName(NULL, buffer, MAX_PATH);
     std::wstring path = std::filesystem::path(buffer).parent_path();
 
+    auto pathResolveTime = std::chrono::high_resolution_clock::now();
+    auto pathDuration = std::chrono::duration_cast<std::chrono::milliseconds>(pathResolveTime - startTime);
+    Logger::trace(L"Path resolution took {} ms", pathDuration.count());
+
     auto res = AppLauncher::LaunchApp(path + L"\\PowerToys.WorkspacesWindowArranger.exe", projectId, elevated);
+    
+    auto launchTime = std::chrono::high_resolution_clock::now();
+    auto launchDuration = std::chrono::duration_cast<std::chrono::milliseconds>(launchTime - pathResolveTime);
+    Logger::info(L"Process launch took {} ms", launchDuration.count());
+    
     if (res.isOk())
     {
         auto value = res.value();

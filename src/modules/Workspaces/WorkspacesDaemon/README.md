@@ -95,7 +95,7 @@ This tool automatically:
 
 Launch an existing workspace (`launch_workspace`):
 ```json
-{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"launch_workspace","arguments":{"workspaceId":"25-09-18-21-08"}}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"launch_workspace","arguments":{"workspaceId":"25-09-20-15-13"}}}
 ```
 
 ## 📋 Available Tools

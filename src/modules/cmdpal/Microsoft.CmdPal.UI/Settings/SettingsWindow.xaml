@@ -54,6 +54,10 @@
                     Icon="{ui:FontIcon Glyph=&#xE80F;}"
                     Tag="General" />
                 <NavigationViewItem
+                    Content="Profiles"
+                    Icon="{ui:FontIcon Glyph=&#xE7EE;}"
+                    Tag="Profiles" />
+                <NavigationViewItem
                     x:Uid="Settings_GeneralPage_NavigationViewItem_Extensions"
                     Icon="{ui:FontIcon Glyph=&#xEA86;}"
                     Tag="Extensions" />

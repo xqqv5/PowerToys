@@ -3,7 +3,7 @@
 
 #include <common/logger/logger.h>
 
-IPCHelper::IPCHelper(const std::wstring& currentPipeName, const std::wstring receiverPipeName, std::function<void(const std::wstring&)> messageCallback) :
+IPCHelper::IPCHelper(const std::wstring& currentPipeName, const std::wstring& receiverPipeName, std::function<void(const std::wstring&)> messageCallback) :
     callback(messageCallback)
 {
     HANDLE hToken = nullptr;

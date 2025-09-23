@@ -81,6 +81,7 @@ public sealed partial class SettingsWindow : WindowEx,
         var pageType = page switch
         {
             "General" => typeof(GeneralPage),
+            "Profiles" => typeof(ProfilesPage),
             "Extensions" => typeof(ExtensionsPage),
             _ => null,
         };

@@ -4,6 +4,7 @@
 #include <common/logger/logger.h>
 
 LaunchingStatus::LaunchingStatus(const WorkspacesData::WorkspacesProject& project)
+    : m_project(project)
 {
     std::unique_lock lock(m_mutex);
     for (const auto& app : project.apps)
@@ -141,4 +142,9 @@ void LaunchingStatus::Cancel()
             state.state = LaunchingState::Canceled;
         }
     }
+}
+
+const WorkspacesData::WorkspacesProject& LaunchingStatus::GetWorkspace() const noexcept
+{
+    return m_project;
 }

@@ -12,6 +12,7 @@
 
 #include <WorkspacesLib/trace.h>
 #include <WorkspacesLib/WorkspacesData.h>
+#include <WorkspacesLib/WorkspacesService.h>
 
 #include <shellapi.h>
 
@@ -218,6 +219,26 @@ private:
 
         Trace::Workspaces::Enable(true);
 
+        // 启动统一的 Workspaces 服务
+        try
+        {
+            if (!m_workspacesService)
+            {
+                m_workspacesService = std::make_unique<WorkspacesService>();
+            }
+            
+            m_workspacesService->Start();
+            Logger::info("WorkspacesService started successfully");
+        }
+        catch (const std::exception& e)
+        {
+            Logger::error("Failed to start WorkspacesService: {}", e.what());
+        }
+        catch (...)
+        {
+            Logger::error("Unknown error starting WorkspacesService");
+        }
+
         unsigned long powertoys_pid = GetCurrentProcessId();
         std::wstring executable_args = L"";
         executable_args.append(std::to_wstring(powertoys_pid));
@@ -239,6 +260,24 @@ private:
         if (traceEvent)
         {
             Trace::Workspaces::Enable(false);
+        }
+
+        // 停止 Workspaces 服务
+        try
+        {
+            if (m_workspacesService)
+            {
+                m_workspacesService->Stop();
+                Logger::info("WorkspacesService stopped successfully");
+            }
+        }
+        catch (const std::exception& e)
+        {
+            Logger::error("Error stopping WorkspacesService: {}", e.what());
+        }
+        catch (...)
+        {
+            Logger::error("Unknown error stopping WorkspacesService");
         }
 
         if (m_toggleEditorEvent)
@@ -353,6 +392,9 @@ private:
 
     // Handle to event used when hotkey is invoked
     HANDLE m_hotkeyEvent;
+
+    // 统一的 Workspaces 服务
+    std::unique_ptr<WorkspacesService> m_workspacesService;
 
     // Hotkey to invoke the module
     HotkeyEx m_hotkey{
